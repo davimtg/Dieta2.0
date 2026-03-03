@@ -2,10 +2,11 @@ import { useState } from 'react';
 import { useDietData } from '../hooks/useDietData';
 import CreateRecipeModal from '../components/CreateRecipeModal';
 import RecipeDetailsModal from '../components/RecipeDetailsModal';
-import { Plus, BookOpen, Clock, Image as ImageIcon } from 'lucide-react';
+import { Plus, BookOpen, Clock, Image as ImageIcon, Search } from 'lucide-react';
 
 export default function Recipes() {
     const { receitas, isLoading } = useDietData();
+    const [search, setSearch] = useState('');
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
     // Novas variáveis de estado para a modal de detalhes
@@ -16,6 +17,10 @@ export default function Recipes() {
         setSelectedRecipe(receita);
         setIsDetailsModalOpen(true);
     };
+
+    const filteredReceitas = receitas.filter((r: any) =>
+        r.nome.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen pb-32">
@@ -29,9 +34,20 @@ export default function Recipes() {
                 </button>
             </div>
 
+            <div className="relative mb-6">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+                <input
+                    type="text"
+                    placeholder="Pesquisar receitas..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="w-full bg-white shadow-sm border-transparent rounded-2xl py-4 pl-12 pr-4 text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+            </div>
+
             {isLoading ? (
                 <p className="text-center text-gray-500 mt-10">Carregando...</p>
-            ) : receitas.length === 0 ? (
+            ) : filteredReceitas.length === 0 ? (
                 <div className="bg-white rounded-[32px] p-8 text-center shadow-sm border border-gray-100 flex flex-col items-center mt-12">
                     <div className="bg-emerald-50 p-4 rounded-full mb-4 text-emerald-500">
                         <BookOpen size={40} />
@@ -47,7 +63,7 @@ export default function Recipes() {
                 </div>
             ) : (
                 <div className="space-y-4">
-                    {receitas.map((receita: any) => {
+                    {filteredReceitas.map((receita: any) => {
                         let totalKcal = 0;
                         let totalCarbo = 0;
                         let totalProt = 0;

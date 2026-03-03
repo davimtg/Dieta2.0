@@ -3,20 +3,9 @@ import { useAuth } from '../hooks/useAuth';
 import { useDietData } from '../hooks/useDietData';
 import { useBluetoothScale } from '../hooks/useBluetoothScale';
 import { LogOut, User as UserIcon, Activity, Flame, Droplets, Bluetooth } from 'lucide-react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 
-const macroSchema = z.object({
-    idade: z.number().min(10, "Idade inválida").max(120),
-    peso: z.number().min(30, "Peso inválido"),
-    altura: z.number().min(100, "Altura inválida (cm)"),
-    sexo: z.enum(['M', 'F']),
-    fator_atividade: z.enum(['1.2', '1.375', '1.55', '1.725', '1.9']),
-    objetivo: z.enum(['perder', 'manter', 'ganhar'])
-});
-
-type MacroFormInputs = z.infer<typeof macroSchema>;
+import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
+import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
 
 export default function Profile() {
     const { session, supabase } = useAuth();
@@ -24,51 +13,69 @@ export default function Profile() {
     const { connectToScale, isConnected, isConnecting } = useBluetoothScale();
     const [showCalc, setShowCalc] = useState(false);
 
-    const { register, handleSubmit, formState: { errors }, watch } = useForm<MacroFormInputs>({
-        resolver: zodResolver(macroSchema),
-        defaultValues: {
-            idade: 25,
-            peso: perfil?.peso_atual || 70,
-            altura: 170,
-            sexo: 'M',
-            fator_atividade: '1.2',
-            objetivo: perfil?.objetivo || 'manter'
-        }
-    });
-
-    const watchAllFields = watch();
-
-    // Dynamic Preview Calculation
-    let tmbPreview = 0;
-    if (watchAllFields.sexo === 'M') {
-        tmbPreview = 88.362 + (13.397 * (watchAllFields.peso || 0)) + (4.799 * (watchAllFields.altura || 0)) - (5.677 * (watchAllFields.idade || 0));
-    } else {
-        tmbPreview = 447.593 + (9.247 * (watchAllFields.peso || 0)) + (3.098 * (watchAllFields.altura || 0)) - (4.330 * (watchAllFields.idade || 0));
-    }
-    const tdeePreview = tmbPreview * Number(watchAllFields.fator_atividade || 1.2);
-
-    let metaKcalPreview = Math.round(tdeePreview || 2000);
-    if (watchAllFields.objetivo === 'perder') metaKcalPreview -= 500;
-    if (watchAllFields.objetivo === 'ganhar') metaKcalPreview += 500;
-
-    const metaAguaPreview = Math.round((watchAllFields.peso || 0) * 35);
-    const metaCarbsPreview = Math.round((metaKcalPreview * 0.45) / 4);
-    const metaProtPreview = Math.round((metaKcalPreview * 0.3) / 4);
-    const metaFatPreview = Math.round((metaKcalPreview * 0.25) / 9);
+    // State to hold calculator results
+    const [calcResults, setCalcResults] = useState<Omit<CalculatorResultsProps, 'onApply'> | null>(null);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
     };
 
-    const onSubmit = async (data: MacroFormInputs) => {
+    const handleCalculate = (data: CalculatorInputs) => {
+        let bmr = 0;
+
+        if (data.formula === 'mifflin') {
+            if (data.sexo === 'M') {
+                bmr = (10 * data.peso) + (6.25 * data.altura) - (5 * data.idade) + 5;
+            } else {
+                bmr = (10 * data.peso) + (6.25 * data.altura) - (5 * data.idade) - 161;
+            }
+        } else if (data.formula === 'katch') {
+            const bf = data.bf || 20; // fallback safe
+            bmr = 370 + (21.6 * (1 - (bf / 100)) * data.peso);
+        }
+
+        const tdee = bmr * Number(data.fator_atividade);
+
+        let metaKcal = Math.round(tdee);
+        if (data.objetivo === 'perder') metaKcal -= 500;
+        if (data.objetivo === 'ganhar') metaKcal += 500;
+
+        // standard dynamic macro calculation
+        const protein = Math.round(data.peso * 2.0); // 2g/kg
+        const fat = Math.round(data.peso * 1.0); // 1g/kg
+        const proteinKcal = protein * 4;
+        const fatKcal = fat * 9;
+
+        let carbsKcal = metaKcal - (proteinKcal + fatKcal);
+        let carbs = Math.round(carbsKcal / 4);
+        if (carbs < 0) carbs = 0; // Edge case safeguard
+
+        setCalcResults({
+            bmr: Math.round(bmr),
+            tdee: Math.round(tdee),
+            metaKcal,
+            carbs,
+            protein,
+            fat,
+            peso: data.peso,
+            objetivo: data.objetivo
+        });
+    };
+
+    const handleApply = async () => {
+        if (!calcResults) return;
+
+        const metaAgua = Math.round(calcResults.peso * 35);
+
         try {
             await updatePerfil({
-                meta_kcal: metaKcalPreview,
-                meta_agua_ml: metaAguaPreview,
-                peso_atual: data.peso,
-                objetivo: data.objetivo
+                meta_kcal: calcResults.metaKcal,
+                meta_agua_ml: metaAgua,
+                peso_atual: calcResults.peso,
+                objetivo: calcResults.objetivo
             });
             alert('Metas atualizadas com sucesso!');
+            setCalcResults(null);
             setShowCalc(false);
         } catch (e) {
             console.error(e);
@@ -111,9 +118,12 @@ export default function Profile() {
                 </div>
             </div>
 
-            <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
+            <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden mb-6">
                 <button
-                    onClick={() => setShowCalc(!showCalc)}
+                    onClick={() => {
+                        setShowCalc(!showCalc);
+                        if (showCalc) setCalcResults(null);
+                    }}
                     className="w-full p-6 text-left flex justify-between items-center bg-white hover:bg-emerald-50 transition"
                 >
                     <div className="flex items-center gap-3">
@@ -124,93 +134,27 @@ export default function Profile() {
                 </button>
 
                 {showCalc && (
-                    <form onSubmit={handleSubmit(onSubmit)} className="p-6 border-t border-gray-100 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Idade</label>
-                                <input type="number" {...register('idade', { valueAsNumber: true })} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 px-3 focus:outline-emerald-500" />
-                                {errors.idade && <span className="text-red-500 text-[10px]">{errors.idade.message}</span>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Sexo</label>
-                                <select {...register('sexo')} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 px-3 focus:outline-emerald-500">
-                                    <option value="M">Masculino</option>
-                                    <option value="F">Feminino</option>
-                                </select>
-                            </div>
-                        </div>
+                    <div className="p-6 border-t border-gray-100">
+                        <NutritionalCalculatorForm
+                            defaultValues={{
+                                peso: perfil?.peso_atual || 70,
+                                objetivo: (perfil?.objetivo as any) || 'manter'
+                            }}
+                            onCalculate={handleCalculate}
+                        />
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Peso (kg)</label>
-                                <input type="number" step="0.1" {...register('peso', { valueAsNumber: true })} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 px-3 focus:outline-emerald-500" />
-                                {errors.peso && <span className="text-red-500 text-[10px]">{errors.peso.message}</span>}
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 mb-1">Altura (cm)</label>
-                                <input type="number" {...register('altura', { valueAsNumber: true })} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 px-3 focus:outline-emerald-500" />
-                                {errors.altura && <span className="text-red-500 text-[10px]">{errors.altura.message}</span>}
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 mb-1">Nível de Atividade Física</label>
-                            <select {...register('fator_atividade')} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2 px-3 focus:outline-emerald-500 text-sm">
-                                <option value="1.2">Sedentário (pouco ou nenhum exercício)</option>
-                                <option value="1.375">Levemente Ativo (exercício leve 1-3 dias/sem)</option>
-                                <option value="1.55">Moderadamente Ativo (esporte moderado 3-5 dias/sem)</option>
-                                <option value="1.725">Muito Ativo (esporte pesado 6-7 dias/sem)</option>
-                                <option value="1.9">Extremamente Ativo (esporte pesado + trabalho físico)</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-500 mb-1">Seu Objetivo Principal</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                {['perder', 'manter', 'ganhar'].map((obj) => (
-                                    <label key={obj} className={`text-center py-2 px-1 rounded-xl border cursor-pointer text-xs font-bold transition-all ${watchAllFields.objetivo === obj ? 'bg-emerald-50 border-emerald-500 text-emerald-600' : 'bg-gray-50 border-gray-100 text-gray-500 hover:bg-gray-100'}`}>
-                                        <input type="radio" value={obj} {...register('objetivo')} className="hidden" />
-                                        {obj.charAt(0).toUpperCase() + obj.slice(1)}
-                                    </label>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex flex-col gap-3 mt-4">
-                            <h4 className="text-xs font-bold text-emerald-800 uppercase tracking-wider mb-2 border-b border-emerald-100 pb-2">Preview dos Resultados</h4>
-                            <div className="flex justify-between items-center">
-                                <span className="text-sm font-semibold text-emerald-700">Meta Diária (Kcal)</span>
-                                <span className="text-xl font-black text-emerald-600">{metaKcalPreview} kcal</span>
-                            </div>
-                            <div className="grid grid-cols-3 gap-2 pt-2 border-t border-emerald-100/50">
-                                <div className="text-center bg-white/60 p-2 rounded-xl">
-                                    <span className="block text-[10px] uppercase font-bold text-blue-500 mb-1">Carb</span>
-                                    <span className="font-black text-gray-800 text-sm">{metaCarbsPreview}g</span>
-                                </div>
-                                <div className="text-center bg-white/60 p-2 rounded-xl">
-                                    <span className="block text-[10px] uppercase font-bold text-emerald-500 mb-1">Prot</span>
-                                    <span className="font-black text-gray-800 text-sm">{metaProtPreview}g</span>
-                                </div>
-                                <div className="text-center bg-white/60 p-2 rounded-xl">
-                                    <span className="block text-[10px] uppercase font-bold text-amber-500 mb-1">Gord</span>
-                                    <span className="font-black text-gray-800 text-sm">{metaFatPreview}g</span>
-                                </div>
-                            </div>
-                            <div className="flex justify-between items-center pt-2 border-t border-emerald-100/50">
-                                <span className="text-sm font-semibold text-emerald-700">Hidratação Mínima</span>
-                                <span className="text-lg font-black text-blue-500">{metaAguaPreview} ml</span>
-                            </div>
-                        </div>
-
-                        <button type="submit" className="w-full bg-emerald-500 text-white font-bold py-3 mt-4 rounded-xl hover:bg-emerald-600 transition">
-                            Confirmar Novas Metas
-                        </button>
-                    </form>
+                        {calcResults && (
+                            <NutritionalCalculatorResults
+                                {...calcResults}
+                                onApply={handleApply}
+                            />
+                        )}
+                    </div>
                 )}
             </div>
 
             {/* Bluetooth Beta Feature */}
-            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 flex items-center justify-between mt-6 mb-6">
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                     <div className="bg-blue-100 p-3 rounded-full text-blue-600">
                         <Bluetooth size={24} />
