@@ -35,8 +35,10 @@ export function useDietData(date: Date = new Date()) {
           receita_ingredientes (
             id,
             alimento_id,
+            ingrediente_receita_id,
             quantidade_g,
-            alimentos (*)
+            alimentos (*),
+            receitas:ingrediente_receita_id (*, receita_ingredientes (*, alimentos (*)))
           )
         `)
                 .eq('user_id', userId);
@@ -55,7 +57,7 @@ export function useDietData(date: Date = new Date()) {
 
             const { data: existingMeals, error: fetchError } = await supabase
                 .from('refeicoes_diarias')
-                .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*))))')
+                .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*), receitas:ingrediente_receita_id(*, receita_ingredientes(*, alimentos(*))))))')
                 .eq('user_id', userId)
                 .eq('data', formattedDate);
 
@@ -74,7 +76,7 @@ export function useDietData(date: Date = new Date()) {
                             tipo_refeicao: tipo
                         }))
                     )
-                    .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*))))');
+                    .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*), receitas:ingrediente_receita_id(*, receita_ingredientes(*, alimentos(*))))))');
 
                 if (insertError) throw insertError;
                 return [...(existingMeals || []), ...(newMeals || [])];
@@ -171,7 +173,7 @@ export function useDietData(date: Date = new Date()) {
     });
 
     const addReceitaMutation = useMutation({
-        mutationFn: async (novaReceita: { nome: string; rendimento_porcoes: number; preparo: string; tempo_preparo_min?: number | null; imagem_url?: string; ingredientes: { alimento_id: string; quantidade_g: number }[] }) => {
+        mutationFn: async (novaReceita: { nome: string; rendimento_porcoes: number; preparo: string; tempo_preparo_min?: number | null; imagem_url?: string; ingredientes: { alimento_id?: string; ingrediente_receita_id?: string; quantidade_g: number }[] }) => {
             // First insert recipe
             const { data: recipeData, error: recipeError } = await supabase
                 .from('receitas')
@@ -191,7 +193,8 @@ export function useDietData(date: Date = new Date()) {
             if (novaReceita.ingredientes.length > 0) {
                 const ingredientsToInsert = novaReceita.ingredientes.map(ing => ({
                     receita_id: recipeData.id,
-                    alimento_id: ing.alimento_id,
+                    alimento_id: ing.alimento_id || null,
+                    ingrediente_receita_id: ing.ingrediente_receita_id || null,
                     quantidade_g: ing.quantidade_g
                 }));
 

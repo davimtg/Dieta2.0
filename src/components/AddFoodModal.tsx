@@ -2,6 +2,8 @@ import { useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Search } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
+import CreateFoodModal from './CreateFoodModal';
+import CreateRecipeModal from './CreateRecipeModal';
 
 interface AddFoodModalProps {
     isOpen: boolean;
@@ -16,6 +18,10 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
     const [itemType, setItemType] = useState<'alimento' | 'receita'>('alimento');
     const [quantidade, setQuantidade] = useState<string>('100');
     const [loading, setLoading] = useState(false);
+
+    // Modal states para criação in-flow
+    const [isCreateFoodModalOpen, setIsCreateFoodModalOpen] = useState(false);
+    const [isCreateRecipeModalOpen, setIsCreateRecipeModalOpen] = useState(false);
 
     // Combina e filtra alimentos e receitas
     const filteredItems = [
@@ -47,8 +53,15 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
         }
     };
 
+    const handleFoodCreated = (novoAlimento: any) => {
+        setSelectedItem(novoAlimento);
+        setItemType('alimento');
+        setQuantidade(novoAlimento.porcao_base_g.toString());
+        setSearch('');
+    };
+
     // Helpers de cálculo para receitas aninhadas
-    const getReceitaMacros = (receita: any) => {
+    const getReceitaMacros = (receita: any): any => {
         let totalC = 0, totalP = 0, totalG = 0, totalK = 0;
         receita.receita_ingredientes?.forEach((ri: any) => {
             if (ri.alimentos) {
@@ -57,6 +70,13 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                 totalP += ri.alimentos.prot * ratio;
                 totalG += ri.alimentos.gord * ratio;
                 totalK += ri.alimentos.kcal * ratio;
+            } else if (ri.receitas) {
+                const subMacros = getReceitaMacros(ri.receitas);
+                const portions = ri.quantidade_g; // Receitas são quantificadas em porções
+                totalC += subMacros.carbo * portions;
+                totalP += subMacros.prot * portions;
+                totalG += subMacros.gord * portions;
+                totalK += subMacros.kcal * portions;
             }
         });
         const porcoes = receita.rendimento_porcoes || 1;
@@ -126,8 +146,27 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                                         </button>
                                     );
                                 })}
-                                {filteredItems.length === 0 && (
-                                    <p className="text-center text-gray-400 py-8 text-sm">Nenhum item encontrado.</p>
+                                {filteredItems.length === 0 && search.length > 0 && (
+                                    <div className="text-center py-6 px-4">
+                                        <p className="text-gray-500 text-sm mb-4">Nenhum item encontrado.</p>
+                                        <div className="flex flex-col gap-3">
+                                            <button
+                                                onClick={() => setIsCreateFoodModalOpen(true)}
+                                                className="w-full text-center text-sm text-emerald-600 hover:bg-emerald-50 py-3 rounded-xl font-medium transition-colors border border-transparent hover:border-emerald-100"
+                                            >
+                                                + Cadastrar Alimento
+                                            </button>
+                                            <button
+                                                onClick={() => setIsCreateRecipeModalOpen(true)}
+                                                className="w-full text-center text-sm text-emerald-600 hover:bg-emerald-50 py-3 rounded-xl font-medium transition-colors border border-transparent hover:border-emerald-100"
+                                            >
+                                                + Criar Receita
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                                {filteredItems.length === 0 && search.length === 0 && (
+                                    <p className="text-center text-gray-400 py-8 text-sm">Digite para pesquisar...</p>
                                 )}
                             </div>
                         </>
@@ -183,6 +222,25 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                     )}
                 </Dialog.Content>
             </Dialog.Portal>
+
+            {/* Stacked Modals para criação in-flow */}
+            <CreateFoodModal
+                isOpen={isCreateFoodModalOpen}
+                onClose={() => setIsCreateFoodModalOpen(false)}
+                initialSearchName={search}
+                onSuccess={handleFoodCreated}
+            />
+
+            <CreateRecipeModal
+                isOpen={isCreateRecipeModalOpen}
+                onClose={() => {
+                    setIsCreateRecipeModalOpen(false);
+                    // Como CreateRecipeModal não tem onSuccess callback nativo ainda,
+                    // ele cria via store e teremos que fechar o painel e re-buscar
+                    // Para ficar simples, apenas limparemos a pesquisa ao criar receita
+                    setSearch('');
+                }}
+            />
         </Dialog.Root>
     );
 }

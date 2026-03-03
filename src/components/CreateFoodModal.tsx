@@ -53,6 +53,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
             setFormData(prev => ({
                 ...prev,
                 nome: data.nome || prev.nome,
+                marca: data.marca || prev.marca,
                 kcal: data.kcal?.toString() || '',
                 carbo: data.carbo?.toString() || '',
                 prot: data.prot?.toString() || '',
@@ -65,7 +66,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
             setVitatUrl('');
         } catch (err: any) {
             console.error(err);
-            alert('Erro ao extrair dados do Vitat: ' + err.message);
+            alert('Falha ao extrair: ' + err.message);
         } finally {
             setIsScraping(false);
         }
@@ -165,7 +166,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                         </Dialog.Close>
                     </div>
 
-                    {/* Auto-preenchimento Vitat */}
+                    {/* Auto-preenchimento Vitat / FatSecret */}
                     <div className="bg-emerald-50 p-4 rounded-2xl mb-4 border border-emerald-100">
                         <label className="block text-sm font-semibold text-emerald-800 mb-2">
                             Preenchimento Rápido (Opcional)
@@ -175,7 +176,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                                 type="url"
                                 value={vitatUrl}
                                 onChange={e => setVitatUrl(e.target.value)}
-                                placeholder="Cole o link do Vitat (Ex: vitat.com.br/...)"
+                                placeholder="Link do Vitat ou FatSecret..."
                                 className="flex-1 bg-white border border-emerald-200 rounded-xl py-2 px-3 text-sm focus:outline-none focus:border-emerald-500"
                             />
                             <button

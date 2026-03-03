@@ -11,7 +11,7 @@ interface CreateRecipeModalProps {
 }
 
 export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModalProps) {
-    const { alimentos, addReceita } = useDietData();
+    const { alimentos, receitas, addReceita } = useDietData();
     const [loading, setLoading] = useState(false);
     const [nome, setNome] = useState('');
     const [preparo, setPreparo] = useState('');
@@ -22,7 +22,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
     const [showUrlInput, setShowUrlInput] = useState(false);
 
     const [search, setSearch] = useState('');
-    const [ingredientes, setIngredientes] = useState<{ alimento: any, quantidade_g: number }[]>([]);
+    const [ingredientes, setIngredientes] = useState<{ item: any, type: 'alimento' | 'receita', quantidade_g: number }[]>([]);
 
     // Modal de Novo Alimento
     const [isCreateFoodModalOpen, setIsCreateFoodModalOpen] = useState(false);
@@ -61,13 +61,17 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
         }
     };
 
-    const filteredAlimentos = search ? alimentos.filter((a: any) =>
-        a.nome.toLowerCase().includes(search.toLowerCase())
+    const filteredItems = search ? [
+        ...alimentos.map((a: any) => ({ ...a, type: 'alimento' })),
+        ...receitas.map((r: any) => ({ ...r, type: 'receita' }))
+    ].filter((item: any) =>
+        item.nome.toLowerCase().includes(search.toLowerCase())
     ) : [];
 
-    const handleAddIngredient = (alimento: any) => {
-        // Default to base portion
-        setIngredientes([...ingredientes, { alimento, quantidade_g: alimento.porcao_base_g }]);
+    const handleAddIngredient = (item: any, type: 'alimento' | 'receita') => {
+        // Receitas default 1 porção, alimentos default porção base
+        const pBase = type === 'receita' ? 1 : item.porcao_base_g;
+        setIngredientes([...ingredientes, { item, type, quantidade_g: pBase }]);
         setSearch('');
     };
 
@@ -82,7 +86,23 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
     };
 
     const handleFoodCreated = (novoAlimento: any) => {
-        handleAddIngredient(novoAlimento);
+        handleAddIngredient(novoAlimento, 'alimento');
+    };
+
+    // Helper p/ calcular macros de receita aninhada
+    const getReceitaMacrosPreview = (receita: any): any => {
+        let totalK = 0;
+        receita.receita_ingredientes?.forEach((ri: any) => {
+            if (ri.alimentos) {
+                const ratio = ri.quantidade_g / ri.alimentos.porcao_base_g;
+                totalK += ri.alimentos.kcal * ratio;
+            } else if (ri.receitas) {
+                const subK = getReceitaMacrosPreview(ri.receitas);
+                totalK += subK * ri.quantidade_g; // g representa porções
+            }
+        });
+        const porcoes = receita.rendimento_porcoes || 1;
+        return totalK / porcoes;
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -101,7 +121,8 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                 imagem_url: imagemUrl,
                 rendimento_porcoes: Number(rendimento),
                 ingredientes: ingredientes.map(ing => ({
-                    alimento_id: ing.alimento.id,
+                    alimento_id: ing.type === 'alimento' ? ing.item.id : undefined,
+                    ingrediente_receita_id: ing.type === 'receita' ? ing.item.id : undefined,
                     quantidade_g: ing.quantidade_g
                 }))
             });
@@ -234,8 +255,13 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                 {ingredientes.map((ing, idx) => (
                                     <div key={idx} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl">
                                         <div className="flex-1">
-                                            <p className="text-sm font-semibold text-gray-800">{ing.alimento.nome}</p>
-                                            <p className="text-xs text-emerald-600">{Math.round(ing.alimento.kcal * (ing.quantidade_g / ing.alimento.porcao_base_g))} kcal</p>
+                                            <p className="text-sm font-semibold text-gray-800">{ing.item.nome} {ing.type === 'receita' && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded ml-1">Receita</span>}</p>
+                                            <p className="text-xs text-emerald-600">
+                                                {ing.type === 'alimento'
+                                                    ? Math.round(ing.item.kcal * (ing.quantidade_g / ing.item.porcao_base_g))
+                                                    : Math.round(getReceitaMacrosPreview(ing.item) * ing.quantidade_g)
+                                                } kcal
+                                            </p>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <input
@@ -244,7 +270,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                                 value={ing.quantidade_g}
                                                 onChange={(e) => handleUpdateAmount(idx, e.target.value)}
                                             />
-                                            <span className="text-xs text-gray-500">g</span>
+                                            <span className="text-xs text-gray-500">{ing.type === 'receita' ? 'porção' : 'g'}</span>
                                             <button onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
                                         </div>
                                     </div>
@@ -266,14 +292,17 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                             </div>
                             {search && (
                                 <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1 bg-gray-50">
-                                    {filteredAlimentos.length > 0 ? (
-                                        filteredAlimentos.slice(0, 10).map((alimento: any) => (
+                                    {filteredItems.length > 0 ? (
+                                        filteredItems.slice(0, 10).map((item: any) => (
                                             <button
-                                                key={alimento.id}
-                                                onClick={() => handleAddIngredient(alimento)}
+                                                key={item.id}
+                                                onClick={() => handleAddIngredient(item, item.type)}
                                                 className="w-full text-left p-2 hover:bg-emerald-50 rounded-lg flex justify-between items-center text-sm"
                                             >
-                                                <span className="font-medium text-gray-700">{alimento.nome}</span>
+                                                <span className="font-medium text-gray-700">
+                                                    {item.nome}
+                                                    {item.type === 'receita' && <span className="text-[10px] ml-2 text-emerald-600 font-bold">Res.</span>}
+                                                </span>
                                                 <Plus size={16} className="text-emerald-500" />
                                             </button>
                                         ))
@@ -282,9 +311,9 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                             <p className="text-gray-500 text-sm mb-3">Alimento não encontrado.</p>
                                             <button
                                                 onClick={() => setIsCreateFoodModalOpen(true)}
-                                                className="bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm hover:bg-emerald-600 transition"
+                                                className="w-full text-center text-sm text-emerald-600 hover:bg-emerald-50 py-2 rounded-xl font-medium transition-colors border border-transparent hover:border-emerald-100"
                                             >
-                                                + Cadastrar novo alimento
+                                                + Cadastrar Alimento
                                             </button>
                                         </div>
                                     )}
