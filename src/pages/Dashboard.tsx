@@ -1,15 +1,31 @@
 import { useState } from 'react';
 import { useDietData } from '../hooks/useDietData';
+import { useGlobalDate } from '../contexts/DateContext';
 import AddFoodModal from '../components/AddFoodModal';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
-    const { refeicoes, perfil, isLoading, deleteItem } = useDietData();
+    const { selectedDate, setSelectedDate } = useGlobalDate();
+    const { refeicoes, perfil, isLoading, deleteItem } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
+    // Helpers para formatar o título da data
+    const getDateTitle = () => {
+        const weekday = format(selectedDate, "EEEE", { locale: ptBR });
+        if (isToday(selectedDate)) return `Hoje, ${weekday}`;
+        if (isTomorrow(selectedDate)) return `Amanhã, ${weekday}`;
+        if (isYesterday(selectedDate)) return `Ontem, ${weekday}`;
+        return format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR });
+    };
+
     if (isLoading) {
-        return <div className="min-h-screen bg-emerald-500 flex items-center justify-center text-white">Carregando Diário...</div>;
+        return <div className="min-h-screen bg-emerald-500 flex flex-col items-center justify-center text-white">
+            <Calendar size={48} className="mb-4 animate-bounce text-emerald-200" />
+            <p className="font-semibold">Carregando Diário de {getDateTitle()}...</p>
+        </div>;
     }
 
     const goalKcal = perfil?.meta_kcal || 2000;
@@ -85,10 +101,43 @@ export default function Dashboard() {
     return (
         <div className="bg-emerald-500 pt-8 pb-32 min-h-screen text-white rounded-b-[40px]">
             <div className="px-6 mb-8 flex justify-between items-center">
-                <div>
-                    <h1 className="text-xl font-semibold">Hoje</h1>
-                    <p className="text-emerald-100 text-sm">Resumo da sua dieta</p>
+                <div className="flex flex-col">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setSelectedDate(subDays(selectedDate, 1))}
+                            className="p-1 rounded-full hover:bg-emerald-600 transition"
+                        >
+                            <ChevronLeft size={24} />
+                        </button>
+
+                        <div className="relative group">
+                            <h1 className="text-xl font-bold capitalize select-none cursor-pointer flex items-center gap-2">
+                                {getDateTitle()}
+                            </h1>
+                            <input
+                                type="date"
+                                value={format(selectedDate, 'yyyy-MM-dd')}
+                                onChange={(e) => setSelectedDate(new Date(e.target.value + 'T00:00:00'))}
+                                className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                            />
+                        </div>
+
+                        <button
+                            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+                            className="p-1 rounded-full hover:bg-emerald-600 transition"
+                        >
+                            <ChevronRight size={24} />
+                        </button>
+                    </div>
                 </div>
+                {!isToday(selectedDate) && (
+                    <button
+                        onClick={() => setSelectedDate(new Date())}
+                        className="text-xs bg-emerald-600 px-3 py-1.5 rounded-full font-bold shadow-sm hover:bg-emerald-700 transition"
+                    >
+                        Voltar a Hoje
+                    </button>
+                )}
             </div>
 
             <div className="px-6 relative">

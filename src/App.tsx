@@ -8,6 +8,7 @@ import ShoppingList from './pages/ShoppingList';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
 import { useAuth } from './hooks/useAuth';
+import { DateProvider } from './contexts/DateContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,24 +31,26 @@ function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-sm">
-          {/* Main Content Area */}
-          <div className="flex-1 pb-20 overflow-y-auto">
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/ingredients" element={<Ingredients />} />
-              <Route path="/recipes" element={<Recipes />} />
-              <Route path="/shopping-list" element={<ShoppingList />} />
-              <Route path="/profile" element={<Profile />} />
-            </Routes>
-          </div>
+      <DateProvider>
+        <BrowserRouter>
+          <div className="max-w-md mx-auto min-h-screen bg-gray-50 flex flex-col relative shadow-sm">
+            {/* Main Content Area */}
+            <div className="flex-1 pb-20 overflow-y-auto">
+              <Routes>
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/ingredients" element={<Ingredients />} />
+                <Route path="/recipes" element={<Recipes />} />
+                <Route path="/shopping-list" element={<ShoppingList />} />
+                <Route path="/profile" element={<Profile />} />
+              </Routes>
+            </div>
 
-          {/* Bottom Navigation */}
-          <BottomNavigation />
-        </div>
-      </BrowserRouter>
+            {/* Bottom Navigation */}
+            <BottomNavigation />
+          </div>
+        </BrowserRouter>
+      </DateProvider>
     </QueryClientProvider>
   );
 }

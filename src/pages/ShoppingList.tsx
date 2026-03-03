@@ -2,23 +2,25 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
-import { startOfWeek, endOfWeek, format } from 'date-fns';
-import { ShoppingCart, CheckCircle2, Circle } from 'lucide-react';
+import { addDays, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { ShoppingCart, CheckCircle2, Circle, Calendar } from 'lucide-react';
 
 export default function ShoppingList() {
     const { session } = useAuth();
     const userId = session?.user?.id;
     const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
 
+    // Date range state
     const today = new Date();
-    const start = startOfWeek(today, { weekStartsOn: 0 }); // Sunday
-    const end = endOfWeek(today, { weekStartsOn: 0 }); // Saturday
+    const [startDate, setStartDate] = useState<Date>(today);
+    const [endDate, setEndDate] = useState<Date>(addDays(today, 7));
 
     const { data: weekMeals = [], isLoading } = useQuery({
-        queryKey: ['weekMeals', userId, start, end],
+        queryKey: ['weekMeals', userId, startDate, endDate],
         queryFn: async () => {
-            const startDateStr = format(start, 'yyyy-MM-dd');
-            const endDateStr = format(end, 'yyyy-MM-dd');
+            const startDateStr = format(startDate, 'yyyy-MM-dd');
+            const endDateStr = format(endDate, 'yyyy-MM-dd');
 
             const { data, error } = await supabase
                 .from('refeicoes_diarias')
@@ -80,10 +82,41 @@ export default function ShoppingList() {
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen pb-32">
-            <div className="flex justify-between items-center mb-6 mt-4">
+            <div className="flex justify-between items-center mt-4 mb-2">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900">Mercado</h1>
-                    <p className="text-sm text-gray-500">Lista gerada da dieta da semana</p>
+                    <p className="text-sm text-gray-500">Gere ingredientes das refeições cadastradas</p>
+                </div>
+            </div>
+
+            {/* Date Range Picker */}
+            <div className="bg-white rounded-3xl p-4 shadow-sm border border-gray-100 flex items-center justify-between gap-2 mb-6 text-sm">
+                <div className="flex flex-col flex-1 relative group">
+                    <label className="text-xs font-semibold text-gray-400 mb-0.5 ml-1">De</label>
+                    <div className="flex items-center gap-2 bg-gray-50 text-gray-700 px-3 py-2 rounded-xl border border-transparent group-hover:border-emerald-200 transition">
+                        <Calendar size={14} className="text-emerald-500" />
+                        <span className="font-medium truncate">{format(startDate, "dd 'de' MMM", { locale: ptBR })}</span>
+                        <input
+                            type="date"
+                            value={format(startDate, 'yyyy-MM-dd')}
+                            onChange={(e) => setStartDate(new Date(e.target.value + 'T00:00:00'))}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                        />
+                    </div>
+                </div>
+                <div className="flex flex-col flex-1 relative group">
+                    <label className="text-xs font-semibold text-gray-400 mb-0.5 ml-1">Até</label>
+                    <div className="flex items-center gap-2 bg-gray-50 text-gray-700 px-3 py-2 rounded-xl border border-transparent group-hover:border-emerald-200 transition">
+                        <Calendar size={14} className="text-emerald-500" />
+                        <span className="font-medium truncate">{format(endDate, "dd 'de' MMM", { locale: ptBR })}</span>
+                        <input
+                            type="date"
+                            min={format(startDate, 'yyyy-MM-dd')}
+                            value={format(endDate, 'yyyy-MM-dd')}
+                            onChange={(e) => setEndDate(new Date(e.target.value + 'T00:00:00'))}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                        />
+                    </div>
                 </div>
             </div>
 

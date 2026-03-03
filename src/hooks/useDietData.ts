@@ -234,7 +234,7 @@ export function useDietData(date: Date = new Date()) {
             return data;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['alimentos'] });
+            queryClient.invalidateQueries({ queryKey: ['alimentos', userId] });
         }
     });
 
@@ -247,7 +247,7 @@ export function useDietData(date: Date = new Date()) {
             if (error) throw error;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['alimentos'] });
+            queryClient.invalidateQueries({ queryKey: ['alimentos', userId] });
         }
     });
 
