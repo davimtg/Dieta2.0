@@ -1,0 +1,2 @@
+src/components/AddFoodModal.tsx(5,1): error TS6133: 'useAuth' is declared but its value is never read.
+src/pages/ShoppingList.tsx(5,42): error TS6133: 'addDays' is declared but its value is never read.
