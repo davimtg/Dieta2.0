@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { useDietData } from '../hooks/useDietData';
 import { useGlobalDate } from '../contexts/DateContext';
 import AddFoodModal from '../components/AddFoodModal';
-import { Plus, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import EditItemModal from '../components/EditItemModal';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2 } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -11,6 +12,9 @@ export default function Dashboard() {
     const { refeicoes, perfil, isLoading, deleteItem } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
+
+    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+    const [selectedItemToEdit, setSelectedItemToEdit] = useState<any | null>(null);
 
     // Helpers para formatar o título da data
     const getDateTitle = () => {
@@ -252,12 +256,22 @@ export default function Dashboard() {
                                                                 </span>
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            onClick={() => deleteItem(item.id)}
-                                                            className="absolute inset-y-0 right-0 flex items-center pr-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <span className="text-red-400 hover:text-red-600 text-xs font-bold">Remover</span>
-                                                        </button>
+                                                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
+                                                                className="p-1.5 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
+                                                                title="Editar quantidade"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteItem(item.id)}
+                                                                className="p-1.5 text-red-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
+                                                                title="Remover item"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 );
                                             } else if (item.receitas) {
@@ -269,9 +283,27 @@ export default function Dashboard() {
 
                                                 return (
                                                     <div key={item.id} className="flex flex-col bg-emerald-50/40 border border-emerald-100 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/60">
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-sm font-bold text-gray-800">{item.receitas.nome}</span>
-                                                            <span className="text-xs font-bold text-emerald-700">{itemKcal} kcal</span>
+                                                        <div className="flex justify-between items-start mb-1 gap-2">
+                                                            <span className="text-sm font-bold text-gray-800 leading-tight pt-1">{item.receitas.nome}</span>
+                                                            <div className="flex items-center justify-end h-8 min-w-[80px]">
+                                                                <span className="text-xs font-bold text-emerald-700 group-hover:hidden">{itemKcal} kcal</span>
+                                                                <div className="hidden group-hover:flex items-center gap-1 -mr-1">
+                                                                    <button
+                                                                        onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
+                                                                        className="p-1.5 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
+                                                                        title="Editar porções"
+                                                                    >
+                                                                        <Edit2 size={16} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => deleteItem(item.id)}
+                                                                        className="p-1.5 text-red-400 hover:bg-red-200/50 hover:text-red-600 rounded-lg transition-colors"
+                                                                        title="Remover receita"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                         <div className="flex justify-between items-center mb-2">
                                                             <div className="flex flex-col items-start gap-1">
@@ -309,12 +341,7 @@ export default function Dashboard() {
                                                             </div>
                                                         )}
 
-                                                        <button
-                                                            onClick={() => deleteItem(item.id)}
-                                                            className="absolute inset-y-0 right-0 top-3 bottom-0 h-8 flex items-center pr-3 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                        >
-                                                            <span className="text-red-400 hover:text-red-600 text-xs font-bold">Remover</span>
-                                                        </button>
+
                                                     </div>
                                                 );
                                             }
@@ -345,6 +372,15 @@ export default function Dashboard() {
                     setSelectedMealId(null);
                 }}
                 refeicaoId={selectedMealId}
+            />
+
+            <EditItemModal
+                isOpen={isEditModalOpen}
+                onClose={() => {
+                    setIsEditModalOpen(false);
+                    setSelectedItemToEdit(null);
+                }}
+                item={selectedItemToEdit}
             />
         </div>
     );

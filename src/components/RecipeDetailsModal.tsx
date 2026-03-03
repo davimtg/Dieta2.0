@@ -84,7 +84,7 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                 id: receita.id,
                 receita: {
                     nome,
-                    preparo,
+                    modo_preparo: preparo,
                     tempo_preparo_min: tempo ? Number(tempo) : null,
                     imagem_url: imagemUrl,
                     rendimento_porcoes: Number(rendimento),
@@ -140,7 +140,8 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
         <Dialog.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm transition-opacity" />
-                <Dialog.Content className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-0 z-50 animate-in slide-in-from-bottom-full duration-300 h-[90vh] flex flex-col focus:outline-none overflow-hidden">
+                <Dialog.Content aria-describedby={undefined} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-0 z-50 animate-in slide-in-from-bottom-full duration-300 h-[90vh] flex flex-col focus:outline-none overflow-hidden">
+                    <Dialog.Title className="sr-only">Detalhes da Receita</Dialog.Title>
 
                     {/* Header Image Area */}
                     <div className="relative h-48 bg-gray-200 flex-shrink-0">

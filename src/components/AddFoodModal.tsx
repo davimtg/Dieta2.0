@@ -72,7 +72,7 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
         <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <Dialog.Portal>
                 <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm transition-opacity" />
-                <Dialog.Content className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-6 z-50 animate-in slide-in-from-bottom-full duration-300 h-[80vh] flex flex-col focus:outline-none">
+                <Dialog.Content aria-describedby={undefined} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-6 z-50 animate-in slide-in-from-bottom-full duration-300 h-[80vh] flex flex-col focus:outline-none">
 
                     <div className="flex justify-between items-center mb-6">
                         <Dialog.Title className="text-xl font-bold text-gray-800">

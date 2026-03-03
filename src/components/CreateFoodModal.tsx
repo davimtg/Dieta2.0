@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Camera } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
@@ -7,9 +7,11 @@ import { supabase } from '../lib/supabase';
 interface CreateFoodModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: (alimento: any) => void;
+    initialSearchName?: string;
 }
 
-export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProps) {
+export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSearchName }: CreateFoodModalProps) {
     const { addAlimento } = useDietData();
     const [loading, setLoading] = useState(false);
 
@@ -20,7 +22,7 @@ export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProp
     const [showUrlInput, setShowUrlInput] = useState(false);
 
     const [formData, setFormData] = useState({
-        nome: '',
+        nome: initialSearchName || '',
         marca: '',
         porcao_base_g: '100',
         kcal: '',
@@ -29,6 +31,13 @@ export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProp
         gord: '',
         imagem_url: ''
     });
+
+    // Sincroniza o initialSearchName com o input se modificado do pai enquanto o modal estiver aberto
+    useEffect(() => {
+        if (isOpen && initialSearchName) {
+            setFormData(prev => ({ ...prev, nome: initialSearchName }));
+        }
+    }, [isOpen, initialSearchName]);
 
     const handleScrapeVitat = async () => {
         if (!vitatUrl) return;
@@ -101,7 +110,7 @@ export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProp
         e.preventDefault();
         setLoading(true);
         try {
-            await addAlimento({
+            const data = await addAlimento({
                 nome: formData.nome,
                 marca: formData.marca,
                 porcao_base_g: Number(formData.porcao_base_g),
@@ -112,6 +121,9 @@ export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProp
                 imagem_url: formData.imagem_url
             });
             onClose();
+            if (onSuccess && data && data.length > 0) {
+                onSuccess(data[0]);
+            }
             // Reset form
             setFormData({
                 nome: '',
@@ -139,8 +151,8 @@ export default function CreateFoodModal({ isOpen, onClose }: CreateFoodModalProp
     return (
         <Dialog.Root open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-black/40 z-40 backdrop-blur-sm transition-opacity" />
-                <Dialog.Content aria-describedby={undefined} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-6 z-50 animate-in slide-in-from-bottom-full duration-300 max-h-[90vh] overflow-y-auto focus:outline-none">
+                <Dialog.Overlay className="fixed inset-0 bg-black/50 z-[60] backdrop-blur-sm transition-opacity" />
+                <Dialog.Content aria-describedby={undefined} className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white rounded-t-[32px] p-6 z-[70] animate-in slide-in-from-bottom-full duration-300 max-h-[90vh] overflow-y-auto focus:outline-none shadow-2xl">
 
                     <div className="flex justify-between items-center mb-6">
                         <Dialog.Title className="text-xl font-bold text-gray-800">

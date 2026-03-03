@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, Search, Plus, Trash2, Camera } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import { supabase } from '../lib/supabase';
+import CreateFoodModal from './CreateFoodModal';
 
 interface CreateRecipeModalProps {
     isOpen: boolean;
@@ -22,6 +23,9 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
 
     const [search, setSearch] = useState('');
     const [ingredientes, setIngredientes] = useState<{ alimento: any, quantidade_g: number }[]>([]);
+
+    // Modal de Novo Alimento
+    const [isCreateFoodModalOpen, setIsCreateFoodModalOpen] = useState(false);
 
     const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -57,9 +61,9 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
         }
     };
 
-    const filteredAlimentos = alimentos.filter((a: any) =>
+    const filteredAlimentos = search ? alimentos.filter((a: any) =>
         a.nome.toLowerCase().includes(search.toLowerCase())
-    );
+    ) : [];
 
     const handleAddIngredient = (alimento: any) => {
         // Default to base portion
@@ -75,6 +79,10 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
         const newIngs = [...ingredientes];
         newIngs[index].quantidade_g = Number(val);
         setIngredientes(newIngs);
+    };
+
+    const handleFoodCreated = (novoAlimento: any) => {
+        handleAddIngredient(novoAlimento);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -258,16 +266,28 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                             </div>
                             {search && (
                                 <div className="max-h-40 overflow-y-auto space-y-1 border border-gray-100 rounded-xl p-1 bg-gray-50">
-                                    {filteredAlimentos.slice(0, 10).map((alimento: any) => (
-                                        <button
-                                            key={alimento.id}
-                                            onClick={() => handleAddIngredient(alimento)}
-                                            className="w-full text-left p-2 hover:bg-emerald-50 rounded-lg flex justify-between items-center text-sm"
-                                        >
-                                            <span className="font-medium text-gray-700">{alimento.nome}</span>
-                                            <Plus size={16} className="text-emerald-500" />
-                                        </button>
-                                    ))}
+                                    {filteredAlimentos.length > 0 ? (
+                                        filteredAlimentos.slice(0, 10).map((alimento: any) => (
+                                            <button
+                                                key={alimento.id}
+                                                onClick={() => handleAddIngredient(alimento)}
+                                                className="w-full text-left p-2 hover:bg-emerald-50 rounded-lg flex justify-between items-center text-sm"
+                                            >
+                                                <span className="font-medium text-gray-700">{alimento.nome}</span>
+                                                <Plus size={16} className="text-emerald-500" />
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="p-4 text-center">
+                                            <p className="text-gray-500 text-sm mb-3">Alimento não encontrado.</p>
+                                            <button
+                                                onClick={() => setIsCreateFoodModalOpen(true)}
+                                                className="bg-emerald-500 text-white font-bold py-2 px-4 rounded-xl text-sm hover:bg-emerald-600 transition"
+                                            >
+                                                + Cadastrar novo alimento
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -291,6 +311,15 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                     </div>
                 </Dialog.Content>
             </Dialog.Portal>
+
+            {/* Stacked Modal para Criar Alimento novo in-flow */}
+            <CreateFoodModal
+                isOpen={isCreateFoodModalOpen}
+                onClose={() => setIsCreateFoodModalOpen(false)}
+                initialSearchName={search}
+                onSuccess={handleFoodCreated}
+            />
+
         </Dialog.Root>
     );
 }

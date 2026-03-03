@@ -4,12 +4,18 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { addDays, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ShoppingCart, CheckCircle2, Circle, Calendar } from 'lucide-react';
+import { ShoppingCart, CheckCircle2, Circle, Calendar, Receipt, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { useShoppingStore } from '../store/useShoppingStore';
 
 export default function ShoppingList() {
     const { session } = useAuth();
     const userId = session?.user?.id;
-    const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
+
+    // Zustand Persisted Store
+    const { checkedItems, prices, quantities, toggleItem, setPrice, setQuantity, clearCart } = useShoppingStore();
+
+    // UI state for expanding items
+    const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
     // Date range state
     const today = new Date();
@@ -71,14 +77,22 @@ export default function ShoppingList() {
         })).sort((a, b) => a.nome.localeCompare(b.nome));
     }, [weekMeals]);
 
-    const toggleCheck = (id: string) => {
-        setCheckedItems(prev => ({
-            ...prev,
-            [id]: !prev[id]
-        }));
-    };
-
     const hasItems = aggregatedList.length > 0;
+
+    // Helper to calculate total
+    const totalCartValue = useMemo(() => {
+        let total = 0;
+        aggregatedList.forEach(item => {
+            if (checkedItems[item.id] && prices[item.id]) {
+                // Convert pt-BR decimal to float (10,50 -> 10.50)
+                const priceNum = parseFloat(prices[item.id].replace(',', '.'));
+                if (!isNaN(priceNum)) {
+                    total += priceNum; // Assume input is the total price for the item
+                }
+            }
+        });
+        return total;
+    }, [aggregatedList, checkedItems, prices]);
 
     return (
         <div className="p-6 bg-gray-50 min-h-screen pb-32">
@@ -131,34 +145,135 @@ export default function ShoppingList() {
                     <p className="text-sm text-gray-500 mb-6">Planeje suas refeições na semana para gerar os ingredientes de compras automaticamente.</p>
                 </div>
             ) : (
-                <div className="space-y-3">
+                <div className="space-y-3 pb-24">
+                    <div className="flex justify-end mb-2">
+                        <button
+                            onClick={() => {
+                                if (window.confirm("Deseja realmente limpar todos os preços e marcações do carrinho?")) {
+                                    clearCart();
+                                }
+                            }}
+                            className="flex items-center gap-1.5 text-xs font-semibold text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                            <Trash2 size={14} /> Limpar Carrinho
+                        </button>
+                    </div>
+
                     {aggregatedList.map((item) => {
                         const isChecked = checkedItems[item.id];
+                        const isExpanded = expandedItem === item.id;
+
+                        // Default to suggested quantity if no custom quantity is saved.
+                        const displayQty = quantities[item.id] !== undefined ? quantities[item.id] : Math.round(item.quantidade).toString();
+                        const displayPrice = prices[item.id] !== undefined ? prices[item.id] : '';
+
                         return (
-                            <button
+                            <div
                                 key={item.id}
-                                onClick={() => toggleCheck(item.id)}
-                                className={`w-full flex items-center justify-between p-4 rounded-2xl shadow-sm border transition-all ${isChecked
-                                    ? 'bg-gray-100 border-gray-200 text-gray-400 opacity-60'
+                                className={`w-full flex flex-col p-4 rounded-2xl shadow-sm border transition-all ${isChecked
+                                    ? 'bg-gray-50 border-gray-200'
                                     : 'bg-white border-gray-100 hover:border-emerald-200 hover:shadow-md'
                                     }`}
                             >
-                                <div className="flex items-center gap-4">
-                                    {isChecked ? (
-                                        <CheckCircle2 className="text-emerald-500" size={24} />
-                                    ) : (
-                                        <Circle className="text-gray-300" size={24} />
-                                    )}
-                                    <span className={`font-semibold text-lg ${isChecked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                                        {item.nome}
-                                    </span>
+                                {/* Top Row - Header */}
+                                <div className="flex items-center justify-between w-full cursor-pointer" onClick={() => {
+                                    if (isChecked && !isExpanded) setExpandedItem(item.id);
+                                    else if (!isChecked && !isExpanded) setExpandedItem(item.id);
+                                    else setExpandedItem(isExpanded ? null : item.id);
+                                }}>
+                                    <div className="flex items-center gap-4 flex-1" onClick={(e) => {
+                                        e.stopPropagation();
+                                        toggleItem(item.id);
+                                        // Auto-expand if checking for the first time
+                                        if (!isChecked && !isExpanded) setExpandedItem(item.id);
+                                    }}>
+                                        {isChecked ? (
+                                            <CheckCircle2 className="text-emerald-500 flex-shrink-0" size={24} />
+                                        ) : (
+                                            <Circle className="text-gray-300 flex-shrink-0" size={24} />
+                                        )}
+                                        <div className="flex flex-col items-start flex-1 min-w-0 pr-2">
+                                            <span className={`font-semibold text-base leading-tight mt-0.5 line-clamp-2 break-words w-full ${isChecked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                                                {item.nome}
+                                            </span>
+                                            {/* Subtitle mapping items to avoid overlap */}
+                                            {isChecked && prices[item.id] && (
+                                                <span className="text-xs font-bold text-emerald-600">R$ {prices[item.id]}</span>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 ml-2 flex-shrink-0">
+                                        <span className={`font-bold text-sm px-2.5 py-1 rounded-lg ${isChecked ? 'bg-gray-200 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
+                                            {displayQty}g
+                                        </span>
+                                        <button className="text-gray-400 p-1">
+                                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                                        </button>
+                                    </div>
                                 </div>
-                                <span className={`font-bold px-3 py-1 rounded-lg ${isChecked ? 'bg-gray-200 text-gray-500' : 'bg-emerald-50 text-emerald-600'}`}>
-                                    {Math.round(item.quantidade)}g
-                                </span>
-                            </button>
+
+                                {/* Expanded Content (Inputs) */}
+                                {isExpanded && (
+                                    <div className="mt-4 pt-4 border-t border-gray-100 grid grid-cols-2 gap-3" onClick={(e) => e.stopPropagation()}>
+                                        <div className="flex flex-col">
+                                            <label className="text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Qtd Real Comprada</label>
+                                            <div className="relative">
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={displayQty}
+                                                    onChange={(e) => setQuantity(item.id, e.target.value)}
+                                                    className={`w-full bg-gray-50 border ${isChecked ? 'border-gray-200' : 'border-gray-200'} rounded-xl py-2 pl-3 pr-8 text-sm font-bold text-gray-700 outline-none focus:ring-2 focus:ring-emerald-500`}
+                                                    placeholder="0"
+                                                />
+                                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-gray-400">g</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex flex-col">
+                                            <label className="text-[11px] font-bold text-gray-500 mb-1.5 uppercase tracking-wide">Preço Total do Item</label>
+                                            <div className="relative">
+                                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-emerald-600">R$</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="decimal"
+                                                    value={displayPrice}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value.replace(/[^0-9.,]/g, '');
+                                                        setPrice(item.id, val);
+                                                        // Auto check if they type a price
+                                                        if (val && !isChecked) {
+                                                            toggleItem(item.id, true);
+                                                        }
+                                                    }}
+                                                    className="w-full bg-emerald-50/50 border border-emerald-100 rounded-xl py-2 pl-10 pr-3 text-sm font-bold text-emerald-800 outline-none focus:ring-2 focus:ring-emerald-500"
+                                                    placeholder="0,00"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Sticky Total Bar */}
+            {totalCartValue > 0 && (
+                <div className="fixed bottom-20 left-4 right-4 z-40 bg-emerald-900 rounded-3xl p-4 shadow-2xl flex items-center justify-between pointer-events-auto border border-emerald-800 animate-in slide-in-from-bottom-5">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-emerald-800 p-2 rounded-2xl">
+                            <Receipt size={24} className="text-emerald-300" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-semibold text-emerald-300 uppercase tracking-widest">Total do Carrinho</span>
+                            <span className="text-2xl font-black text-white">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalCartValue)}
+                            </span>
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
