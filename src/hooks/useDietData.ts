@@ -32,13 +32,13 @@ export function useDietData(date: Date = new Date()) {
                 .from('receitas')
                 .select(`
           *,
-          receita_ingredientes (
+          receita_ingredientes:receita_ingredientes!receita_id (
             id,
             alimento_id,
             ingrediente_receita_id,
             quantidade_g,
             alimentos (*),
-            receitas:ingrediente_receita_id (*, receita_ingredientes (*, alimentos (*)))
+            receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))
           )
         `)
                 .eq('user_id', userId);
@@ -57,7 +57,7 @@ export function useDietData(date: Date = new Date()) {
 
             const { data: existingMeals, error: fetchError } = await supabase
                 .from('refeicoes_diarias')
-                .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*), receitas:ingrediente_receita_id(*, receita_ingredientes(*, alimentos(*))))))')
+                .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*), receitas:receitas!ingrediente_receita_id(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*))))))')
                 .eq('user_id', userId)
                 .eq('data', formattedDate);
 
@@ -76,7 +76,7 @@ export function useDietData(date: Date = new Date()) {
                             tipo_refeicao: tipo
                         }))
                     )
-                    .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes(*, alimentos(*), receitas:ingrediente_receita_id(*, receita_ingredientes(*, alimentos(*))))))');
+                    .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*), receitas:receitas!ingrediente_receita_id(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*))))))');
 
                 if (insertError) throw insertError;
                 return [...(existingMeals || []), ...(newMeals || [])];

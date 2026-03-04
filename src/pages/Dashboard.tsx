@@ -35,7 +35,7 @@ export default function Dashboard() {
     const goalKcal = perfil?.meta_kcal || 2000;
 
     // Helpers
-    const getReceitaMacros = (receita: any) => {
+    const getReceitaMacros = (receita: any): any => {
         let totalC = 0, totalP = 0, totalG = 0, totalK = 0;
         receita.receita_ingredientes?.forEach((ri: any) => {
             if (ri.alimentos) {
@@ -44,6 +44,13 @@ export default function Dashboard() {
                 totalP += ri.alimentos.prot * ratio;
                 totalG += ri.alimentos.gord * ratio;
                 totalK += ri.alimentos.kcal * ratio;
+            } else if (ri.receitas) {
+                const subMacros = getReceitaMacros(ri.receitas);
+                const portions = ri.quantidade_g;
+                totalC += subMacros.carbo * portions;
+                totalP += subMacros.prot * portions;
+                totalG += subMacros.gord * portions;
+                totalK += subMacros.kcal * portions;
             }
         });
         const porcoes = receita.rendimento_porcoes || 1;
