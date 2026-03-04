@@ -5,6 +5,7 @@ export default function Auth() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isNutri, setIsNutri] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -15,19 +16,53 @@ export default function Auth() {
 
         try {
             if (isLogin) {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { error, data } = await supabase.auth.signInWithPassword({
                     email,
                     password,
                 });
                 if (error) throw error;
             } else {
-                const { error } = await supabase.auth.signUp({
+                // Sign Up
+                const { error, data } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                       data: {
+                           role: isNutri ? 'nutri' : 'cliente'
+                       }
+                    }
                 });
+                
                 if (error) throw error;
-                // Optional: show message 'Confirm your email' based on Supabase config
-                alert('Cadastro realizado! Se necessário, confirme no seu email.');
+                
+                // If auto-confirm is enabled or session is returned immediately
+                if (data.session || data.user) {
+                     // Try to ensure profile exists with correct role
+                     const uid = data.user?.id;
+                     if (uid) {
+                        try {
+                           // Using upsert to be safe against race conditions with triggers
+                           const { error: profileError } = await supabase
+                                .from('usuarios_perfil')
+                                .upsert({ 
+                                    id: uid, 
+                                    role: isNutri ? 'nutri' : 'cliente',
+                                    email: email 
+                                }, { onConflict: 'id' });
+                           
+                           if (profileError) {
+                               console.error("Profile upsert error:", profileError);
+                               alert(`ATENÇÃO: Conta criada, mas houve erro ao definir perfil (${profileError.message}). Verifique as permissões RLS no Supabase.`);
+                           }
+                        } catch (pErr: any) {
+                            console.error("Profile creation failed", pErr);
+                            alert(`ATENÇÃO: Erro crítico ao criar perfil: ${pErr.message}`);
+                        }
+                     }
+                }
+                
+                alert('Cadastro realizado com sucesso! Faça login.');
+                setIsLogin(true); // Switch to login view automatically
             }
         } catch (err: any) {
             setError(err.message || 'Erro na autenticação');
@@ -71,6 +106,21 @@ export default function Auth() {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
+
+                    {!isLogin && (
+                        <div className="flex items-center gap-2 pt-2">
+                            <input 
+                                type="checkbox" 
+                                id="isNutri" 
+                                checked={isNutri} 
+                                onChange={(e) => setIsNutri(e.target.checked)}
+                                className="w-5 h-5 text-emerald-500 rounded focus:ring-emerald-500 border-gray-300"
+                            />
+                            <label htmlFor="isNutri" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
+                                Cadastrar como Nutricionista
+                            </label>
+                        </div>
+                    )}
 
                     <button
                         type="submit"

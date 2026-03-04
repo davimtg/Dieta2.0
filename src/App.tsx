@@ -7,6 +7,7 @@ import Recipes from './pages/Recipes';
 import ShoppingList from './pages/ShoppingList';
 import Profile from './pages/Profile';
 import Auth from './pages/Auth';
+import NutriPortal from './pages/NutriPortal';
 import { useAuth } from './hooks/useAuth';
 import { DateProvider } from './contexts/DateContext';
 
@@ -43,6 +44,7 @@ function App() {
                 <Route path="/recipes" element={<Recipes />} />
                 <Route path="/shopping-list" element={<ShoppingList />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/nutri" element={<NutriPortal />} />
               </Routes>
             </div>
 

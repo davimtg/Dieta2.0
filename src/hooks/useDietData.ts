@@ -299,6 +299,19 @@ export function useDietData(date: Date = new Date()) {
         }
     });
 
+    const confirmSuggestionMutation = useMutation({
+        mutationFn: async (itemId: string) => {
+            const { error } = await supabase
+                .from('itens_consumidos')
+                .update({ is_sugestao: false })
+                .eq('id', itemId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId, formattedDate] });
+        }
+    });
+
     return {
         alimentos,
         receitas,
@@ -308,6 +321,7 @@ export function useDietData(date: Date = new Date()) {
         addItem: addItemMutation.mutateAsync,
         updateItem: updateItemMutation.mutateAsync,
         deleteItem: deleteItemMutation.mutateAsync,
+        confirmSuggestion: confirmSuggestionMutation.mutateAsync,
         addAlimento: addAlimentoMutation.mutateAsync,
         updateAlimento: updateAlimentoMutation.mutateAsync,
         deleteAlimento: deleteAlimentoMutation.mutateAsync,
