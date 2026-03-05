@@ -106,16 +106,43 @@ export function useDietData(date: Date = new Date()) {
         enabled: !!userId,
     });
 
+    const { data: planosCliente = [], isLoading: loadingPlanosCliente } = useQuery({
+        queryKey: ['planos_cliente', userId],
+        queryFn: async () => {
+            if (!userId) return [];
+            const { data, error } = await supabase
+                .from('planos_alimentares')
+                .select(`
+                    *,
+                    plano_alimentar_itens (
+                        id,
+                        dia_semana,
+                        tipo_refeicao,
+                        quantidade_g,
+                        alimentos (*),
+                        receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))))
+                    ),
+                    nutricionista:usuarios_perfil!fk_plano_nutri (*)
+                `)
+                .eq('cliente_id', userId)
+                .eq('ativo', true);
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!userId
+    });
+
     // Mutations
     const addItemMutation = useMutation({
-        mutationFn: async ({ refeicaoId, alimentoId, receitaId, quantidade }: any) => {
+        mutationFn: async ({ refeicaoId, alimentoId, receitaId, quantidade, isSugestao = false }: any) => {
             const { data, error } = await supabase
                 .from('itens_consumidos')
                 .insert({
                     refeicao_id: refeicaoId,
                     alimento_id: alimentoId,
                     receita_id: receitaId,
-                    quantidade_g: quantidade
+                    quantidade_g: quantidade,
+                    is_sugestao: isSugestao
                 })
                 .select();
             if (error) throw error;
@@ -126,11 +153,82 @@ export function useDietData(date: Date = new Date()) {
         }
     });
 
+    const applyPlanoMutation = useMutation({
+        mutationFn: async ({ plano, start_date }: { plano: any, start_date: Date }) => {
+            const inserts = [];
+            // Adicionar itens do plano na semana do start_date
+            for (let i = 0; i < 7; i++) {
+                const currentDate = new Date(start_date);
+                currentDate.setDate(currentDate.getDate() + i);
+                const dia_semana = currentDate.getDay(); // 0 a 6 (Domingo a Sábado)
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                const itensDoDia = plano.plano_alimentar_itens.filter((item: any) => item.dia_semana === dia_semana);
+
+                if (itensDoDia.length > 0) {
+                    // Buscar ou criar refeiçoes pra esse dia
+                    let { data: refeicoesDia } = await supabase
+                        .from('refeicoes_diarias')
+                        .select('id, tipo_refeicao')
+                        .eq('user_id', userId)
+                        .eq('data', dateStr);
+
+                    if (!refeicoesDia || refeicoesDia.length === 0) {
+                        const defaultMeals = ['cafe', 'almoco', 'lanche', 'jantar'];
+                        const { data: newMeals, error: insertErr } = await supabase
+                            .from('refeicoes_diarias')
+                            .insert(defaultMeals.map(tipo => ({ user_id: userId, data: dateStr, tipo_refeicao: tipo })))
+                            .select('id, tipo_refeicao');
+                        if (insertErr) throw insertErr;
+                        refeicoesDia = newMeals || [];
+                    }
+
+                    // Preparar inserts para esse dia e essas refeiçoes
+                    for (const planoItem of itensDoDia) {
+                        const ref = refeicoesDia.find((r: any) => r.tipo_refeicao === planoItem.tipo_refeicao);
+                        if (ref) {
+                            inserts.push({
+                                refeicao_id: ref.id,
+                                alimento_id: planoItem.alimento_id,
+                                receita_id: planoItem.receita_id,
+                                quantidade_g: planoItem.quantidade_g,
+                                is_sugestao: true
+                            });
+                        }
+                    }
+                }
+            }
+
+            if (inserts.length > 0) {
+                const { error } = await supabase.from('itens_consumidos').insert(inserts);
+                if (error) throw error;
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId] });
+        }
+    });
+
     const updateItemMutation = useMutation({
         mutationFn: async ({ itemId, quantidade }: any) => {
             const { data, error } = await supabase
                 .from('itens_consumidos')
                 .update({ quantidade_g: quantidade })
+                .eq('id', itemId)
+                .select();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId, formattedDate] });
+        }
+    });
+
+    const updateItemSugestaoMutation = useMutation({
+        mutationFn: async ({ itemId, isSugestao }: { itemId: string, isSugestao: boolean }) => {
+            const { data, error } = await supabase
+                .from('itens_consumidos')
+                .update({ is_sugestao: isSugestao })
                 .eq('id', itemId)
                 .select();
             if (error) throw error;
@@ -304,9 +402,12 @@ export function useDietData(date: Date = new Date()) {
         receitas,
         refeicoes,
         perfil,
-        isLoading: loadingAlimentos || loadingReceitas || loadingRefeicoes || loadingPerfil,
+        planosCliente,
+        isLoading: loadingAlimentos || loadingReceitas || loadingRefeicoes || loadingPerfil || loadingPlanosCliente,
         addItem: addItemMutation.mutateAsync,
+        applyPlano: applyPlanoMutation.mutateAsync,
         updateItem: updateItemMutation.mutateAsync,
+        updateItemSugestao: updateItemSugestaoMutation.mutateAsync,
         deleteItem: deleteItemMutation.mutateAsync,
         addAlimento: addAlimentoMutation.mutateAsync,
         updateAlimento: updateAlimentoMutation.mutateAsync,

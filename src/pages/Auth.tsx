@@ -4,7 +4,10 @@ import { supabase } from '../lib/supabase';
 export default function Auth() {
     const [isLogin, setIsLogin] = useState(true);
     const [email, setEmail] = useState('');
+    const [firstName, setFirstName] = useState('');
+    const [lastName, setLastName] = useState('');
     const [password, setPassword] = useState('');
+    const [isNutri, setIsNutri] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -21,13 +24,26 @@ export default function Auth() {
                 });
                 if (error) throw error;
             } else {
-                const { error } = await supabase.auth.signUp({
+                const { data, error } = await supabase.auth.signUp({
                     email,
                     password,
+                    options: {
+                        data: {
+                            role: isNutri ? 'nutri' : 'cliente',
+                            username: `${firstName} ${lastName}`.trim()
+                        }
+                    }
                 });
                 if (error) throw error;
-                // Optional: show message 'Confirm your email' based on Supabase config
-                alert('Cadastro realizado! Se necessário, confirme no seu email.');
+
+                // Forçar a role no perfil se o usuário foi criado
+                if (data.user) {
+                    await supabase.from('usuarios_perfil').upsert({
+                        id: data.user.id,
+                        role: isNutri ? 'nutri' : 'cliente',
+                        username: `${firstName} ${lastName}`.trim()
+                    }, { onConflict: 'id' });
+                }
             }
         } catch (err: any) {
             setError(err.message || 'Erro na autenticação');
@@ -51,6 +67,32 @@ export default function Auth() {
                 )}
 
                 <form onSubmit={handleAuth} className="space-y-4">
+                    {!isLogin && (
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Nome</label>
+                                <input
+                                    type="text"
+                                    required={!isLogin}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={firstName}
+                                    onChange={(e) => setFirstName(e.target.value)}
+                                    placeholder="João"
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Sobrenome</label>
+                                <input
+                                    type="text"
+                                    required={!isLogin}
+                                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-gray-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                                    value={lastName}
+                                    onChange={(e) => setLastName(e.target.value)}
+                                    placeholder="Silva"
+                                />
+                            </div>
+                        </div>
+                    )}
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
                         <input
@@ -71,6 +113,21 @@ export default function Auth() {
                             onChange={(e) => setPassword(e.target.value)}
                         />
                     </div>
+
+                    {!isLogin && (
+                        <div className="flex items-center gap-2 mt-2">
+                            <input
+                                type="checkbox"
+                                id="isNutri"
+                                checked={isNutri}
+                                onChange={(e) => setIsNutri(e.target.checked)}
+                                className="w-4 h-4 text-emerald-600 bg-gray-50 border-gray-300 rounded focus:ring-emerald-500"
+                            />
+                            <label htmlFor="isNutri" className="text-sm font-medium text-gray-700">
+                                Sou um profissional Nutricionista
+                            </label>
+                        </div>
+                    )}
 
                     <button
                         type="submit"

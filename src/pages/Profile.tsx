@@ -2,16 +2,20 @@ import { useState } from 'react';
 import { useAuth } from '../hooks/useAuth';
 import { useDietData } from '../hooks/useDietData';
 import { useBluetoothScale } from '../hooks/useBluetoothScale';
-import { LogOut, User as UserIcon, Activity, Flame, Droplets, Bluetooth } from 'lucide-react';
+import { LogOut, User as UserIcon, Activity, Flame, Droplets, Bluetooth, Briefcase, ClipboardList, ChevronRight, Calendar } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { startOfWeek } from 'date-fns';
 
 import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
 
 export default function Profile() {
     const { session, supabase } = useAuth();
-    const { perfil, updatePerfil } = useDietData();
+    const { perfil, updatePerfil, planosCliente, applyPlano } = useDietData();
     const { connectToScale, isConnected, isConnecting } = useBluetoothScale();
     const [showCalc, setShowCalc] = useState(false);
+    const [showPlanos, setShowPlanos] = useState(false);
+    const navigate = useNavigate();
 
     // State to hold calculator results
     const [calcResults, setCalcResults] = useState<Omit<CalculatorResultsProps, 'onApply'> | null>(null);
@@ -95,15 +99,73 @@ export default function Profile() {
                 </button>
             </div>
 
-            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 mb-6 flex items-center gap-4">
-                <div className="bg-emerald-100 p-4 rounded-full text-emerald-600">
-                    <UserIcon size={32} />
-                </div>
-                <div>
-                    <h2 className="text-lg font-bold text-gray-800 break-all">{session?.user?.email}</h2>
-                    <p className="text-emerald-500 font-semibold text-sm">Plano Gratuito</p>
+            <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 mb-6 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <div className="bg-emerald-100 p-4 rounded-full text-emerald-600">
+                        <UserIcon size={32} />
+                    </div>
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-800 break-all">{perfil?.username || session?.user?.email}</h2>
+                        <p className="text-emerald-500 font-semibold text-sm capitalize">{perfil?.role === 'nutri' ? 'Nutricionista' : 'Plano Gratuito'}</p>
+                    </div>
                 </div>
             </div>
+
+            {perfil?.role === 'nutri' && (
+                <button
+                    onClick={() => navigate('/nutri')}
+                    className="w-full bg-emerald-600 text-white rounded-[32px] p-6 shadow-md mb-6 flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-4">
+                        <div className="bg-white/20 p-3 flex rounded-2xl text-white"><Briefcase size={28} /></div>
+                        <div className="text-left">
+                            <h3 className="font-bold text-lg">Acessar Portal Nutri</h3>
+                            <p className="text-emerald-100 text-xs mt-0.5">Gerencie seus pacientes e dietas</p>
+                        </div>
+                    </div>
+                    <ChevronRight size={24} className="text-emerald-200" />
+                </button>
+            )}
+
+            {planosCliente && planosCliente.length > 0 && (
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[32px] shadow-sm border border-emerald-100 overflow-hidden mb-6">
+                    <button
+                        onClick={() => setShowPlanos(!showPlanos)}
+                        className="w-full p-6 text-left flex justify-between items-center hover:bg-emerald-100/30 transition"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="bg-emerald-200/50 p-2 rounded-xl text-emerald-700"><ClipboardList size={20} /></div>
+                            <span className="font-bold text-gray-800">Meu Plano Alimentar</span>
+                        </div>
+                        <ChevronRight size={20} className={`text-emerald-600 transition-transform ${showPlanos ? 'rotate-90' : ''}`} />
+                    </button>
+
+                    {showPlanos && (
+                        <div className="p-6 border-t border-emerald-100/50 space-y-4">
+                            {planosCliente.map((plano: any) => (
+                                <div key={plano.id} className="bg-white p-5 rounded-2xl shadow-sm border border-emerald-100/60">
+                                    <h3 className="font-bold text-gray-800 text-lg mb-1">{plano.nome}</h3>
+                                    <p className="text-xs text-gray-500 font-medium mb-4">Prescrito por {plano.nutricionista?.raw_user_meta_data?.username || 'Seu Nutricionista'}</p>
+
+                                    <button
+                                        onClick={async () => {
+                                            if (window.confirm(`Aplicar dieta "${plano.nome}" a partir desta semana? Isso enviará Sugestões para o seu Diário.`)) {
+                                                const startOfWeekDate = startOfWeek(new Date(), { weekStartsOn: 0 }); // Domingo
+                                                await applyPlano({ plano, start_date: startOfWeekDate });
+                                                alert('Dieta aplicada na sua semana com Sucesso! Volte ao Diário.');
+                                                navigate('/dashboard');
+                                            }
+                                        }}
+                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition"
+                                    >
+                                        <Calendar size={18} /> Aplicar à Minha Rotina
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4 mb-6">
                 <div className="bg-white p-5 rounded-[24px] shadow-sm border border-gray-100 text-center">

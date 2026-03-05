@@ -3,13 +3,13 @@ import { useDietData } from '../hooks/useDietData';
 import { useGlobalDate } from '../contexts/DateContext';
 import AddFoodModal from '../components/AddFoodModal';
 import EditItemModal from '../components/EditItemModal';
-import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2 } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
     const { selectedDate, setSelectedDate } = useGlobalDate();
-    const { refeicoes, perfil, isLoading, deleteItem } = useDietData(selectedDate);
+    const { refeicoes, perfil, isLoading, deleteItem, updateItemSugestao } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
@@ -70,6 +70,8 @@ export default function Dashboard() {
 
     refeicoes.forEach((meal: any) => {
         meal.itens_consumidos?.forEach((item: any) => {
+            if (item.is_sugestao) return; // Ignora sugestões pros totais
+
             if (item.alimentos) {
                 const ratio = item.quantidade_g / item.alimentos.porcao_base_g;
                 totalKcal += item.alimentos.kcal * ratio;
@@ -220,6 +222,7 @@ export default function Dashboard() {
                     {sortedMeals.map((meal: any) => {
                         let mealKcal = 0;
                         meal.itens_consumidos?.forEach((item: any) => {
+                            if (item.is_sugestao) return; // Ignora sugestões pro total da refeição
                             if (item.alimentos) {
                                 mealKcal += item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g);
                             }
@@ -247,8 +250,12 @@ export default function Dashboard() {
                                                 const itemP = Math.round(item.alimentos.prot * itemRatio);
                                                 const itemG = Math.round(item.alimentos.gord * itemRatio);
 
+                                                const containerClass = item.is_sugestao
+                                                    ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group"
+                                                    : "flex flex-col bg-gray-50 p-3 rounded-2xl relative group";
+
                                                 return (
-                                                    <div key={item.id} className="flex flex-col bg-gray-50 p-3 rounded-2xl relative group">
+                                                    <div key={item.id} className={containerClass}>
                                                         <div className="flex justify-between items-center mb-1">
                                                             <span className="text-sm font-semibold text-gray-700">{item.alimentos.nome}</span>
                                                             <span className="text-xs font-bold text-gray-900">{itemKcal} kcal</span>
@@ -264,6 +271,15 @@ export default function Dashboard() {
                                                             </div>
                                                         </div>
                                                         <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            {item.is_sugestao && (
+                                                                <button
+                                                                    onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
+                                                                    className="p-1.5 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition-colors"
+                                                                    title="Confirmar consumo"
+                                                                >
+                                                                    <Check size={16} />
+                                                                </button>
+                                                            )}
                                                             <button
                                                                 onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
                                                                 className="p-1.5 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
@@ -288,13 +304,26 @@ export default function Dashboard() {
                                                 const recP = Math.round(rMacros.prot * item.quantidade_g);
                                                 const recG = Math.round(rMacros.gord * item.quantidade_g);
 
+                                                const containerClass = item.is_sugestao
+                                                    ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/50"
+                                                    : "flex flex-col bg-emerald-50/40 border border-emerald-100 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/60";
+
                                                 return (
-                                                    <div key={item.id} className="flex flex-col bg-emerald-50/40 border border-emerald-100 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/60">
+                                                    <div key={item.id} className={containerClass}>
                                                         <div className="flex justify-between items-start mb-1 gap-2">
                                                             <span className="text-sm font-bold text-gray-800 leading-tight pt-1">{item.receitas.nome}</span>
                                                             <div className="flex items-center justify-end h-8 min-w-[80px]">
                                                                 <span className="text-xs font-bold text-emerald-700 group-hover:hidden">{itemKcal} kcal</span>
                                                                 <div className="hidden group-hover:flex items-center gap-1 -mr-1">
+                                                                    {item.is_sugestao && (
+                                                                        <button
+                                                                            onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
+                                                                            className="p-1.5 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition-colors"
+                                                                            title="Confirmar consumo"
+                                                                        >
+                                                                            <Check size={16} />
+                                                                        </button>
+                                                                    )}
                                                                     <button
                                                                         onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
                                                                         className="p-1.5 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
