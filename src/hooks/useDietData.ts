@@ -136,6 +136,22 @@ export function useDietData(date: Date = new Date()) {
         enabled: !!userId
     });
 
+    const { data: metasSugeridasPendentes = [], isLoading: loadingMetasSugeridas } = useQuery({
+        queryKey: ['metas_sugeridas_pendentes', userId],
+        queryFn: async () => {
+            if (!userId) return [];
+            const { data, error } = await supabase
+                .from('metas_sugeridas')
+                .select('*')
+                .eq('paciente_id', userId)
+                .eq('status', 'pendente')
+                .order('created_at', { ascending: false });
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!userId
+    });
+
     // Mutations
     const addItemMutation = useMutation({
         mutationFn: async ({ refeicaoId, alimentoId, receitaId, quantidade, isSugestao = false }: any) => {
@@ -351,6 +367,49 @@ export function useDietData(date: Date = new Date()) {
         }
     });
 
+    const aceitarMetaSugeridaMutation = useMutation({
+        mutationFn: async (sugestaoId: string) => {
+            const sugestao = metasSugeridasPendentes.find((meta: any) => meta.id === sugestaoId);
+            if (!sugestao) throw new Error('Sugestão não encontrada.');
+
+            const { error: perfilError } = await supabase
+                .from('usuarios_perfil')
+                .update({
+                    meta_kcal: sugestao.meta_kcal,
+                    meta_carbo_g: sugestao.carbo_g,
+                    meta_prot_g: sugestao.prot_g,
+                    meta_gord_g: sugestao.gord_g
+                })
+                .eq('id', userId);
+            if (perfilError) throw perfilError;
+
+            const { error: sugestaoError } = await supabase
+                .from('metas_sugeridas')
+                .update({ status: 'aceita' })
+                .eq('id', sugestaoId)
+                .eq('paciente_id', userId);
+            if (sugestaoError) throw sugestaoError;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['perfil', userId] });
+            queryClient.invalidateQueries({ queryKey: ['metas_sugeridas_pendentes', userId] });
+        }
+    });
+
+    const recusarMetaSugeridaMutation = useMutation({
+        mutationFn: async (sugestaoId: string) => {
+            const { error } = await supabase
+                .from('metas_sugeridas')
+                .update({ status: 'recusada' })
+                .eq('id', sugestaoId)
+                .eq('paciente_id', userId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['metas_sugeridas_pendentes', userId] });
+        }
+    });
+
     const updateAlimentoMutation = useMutation({
         mutationFn: async (dados: any) => {
             const { data, error } = await supabase
@@ -430,7 +489,7 @@ export function useDietData(date: Date = new Date()) {
         refeicoes,
         perfil,
         planosCliente,
-        isLoading: loadingAlimentos || loadingReceitas || loadingRefeicoes || loadingPerfil || loadingPlanosCliente,
+        isLoading: loadingAlimentos || loadingReceitas || loadingRefeicoes || loadingPerfil || loadingPlanosCliente || loadingMetasSugeridas,
         addItem: addItemMutation.mutateAsync,
         applyPlano: applyPlanoMutation.mutateAsync,
         swapSugestao: swapSugestaoMutation.mutateAsync,
@@ -444,5 +503,9 @@ export function useDietData(date: Date = new Date()) {
         updateReceita: updateReceitaMutation.mutateAsync,
         deleteReceita: deleteReceitaMutation.mutateAsync,
         updatePerfil: updatePerfilMutation.mutateAsync,
+        metasSugeridasPendentes,
+        aceitarMetaSugerida: aceitarMetaSugeridaMutation.mutateAsync,
+        recusarMetaSugerida: recusarMetaSugeridaMutation.mutateAsync,
+        isRespondendoMetaSugerida: aceitarMetaSugeridaMutation.isPending || recusarMetaSugeridaMutation.isPending,
     };
 }

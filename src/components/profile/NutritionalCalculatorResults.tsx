@@ -8,6 +8,7 @@ export interface CalculatorResultsProps {
     peso: number;
     objetivo: 'perder' | 'manter' | 'ganhar';
     onApply: () => void;
+    mode?: 'paciente' | 'nutricionista';
 }
 
 export default function NutritionalCalculatorResults({
@@ -18,7 +19,8 @@ export default function NutritionalCalculatorResults({
     protein,
     fat,
     objetivo,
-    onApply
+    onApply,
+    mode = 'paciente'
 }: CalculatorResultsProps) {
     const labelsObjetivo = {
         perder: 'Déficit calórico para perda de peso',
@@ -68,7 +70,7 @@ export default function NutritionalCalculatorResults({
                 onClick={onApply}
                 className="w-full bg-emerald-600 text-white font-bold py-3 mt-4 rounded-xl hover:bg-emerald-700 transition shadow-md"
             >
-                Aplicar como Minhas Metas
+                {mode === 'nutricionista' ? 'Enviar Sugestão de Metas ao Paciente' : 'Aplicar como Minhas Metas'}
             </button>
         </div>
     );

@@ -9,10 +9,20 @@ import { format } from 'date-fns';
 import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
 import PlanoPreviewModal from '../components/profile/PlanoPreviewModal';
+import { calculateNutritionTargets } from '../lib/nutritionCalculator';
 
 export default function Profile() {
     const { session, supabase } = useAuth();
-    const { perfil, updatePerfil, planosCliente, applyPlano } = useDietData();
+    const {
+        perfil,
+        updatePerfil,
+        planosCliente,
+        applyPlano,
+        metasSugeridasPendentes,
+        isRespondendoMetaSugerida,
+        aceitarMetaSugerida,
+        recusarMetaSugerida
+    } = useDietData();
     const { connectToScale, isConnected, isConnecting } = useBluetoothScale();
     const [showCalc, setShowCalc] = useState(false);
     const [showPlanos, setShowPlanos] = useState(false);
@@ -32,45 +42,7 @@ export default function Profile() {
     };
 
     const handleCalculate = (data: CalculatorInputs) => {
-        let bmr = 0;
-
-        if (data.formula === 'mifflin') {
-            if (data.sexo === 'M') {
-                bmr = (10 * data.peso) + (6.25 * data.altura) - (5 * data.idade) + 5;
-            } else {
-                bmr = (10 * data.peso) + (6.25 * data.altura) - (5 * data.idade) - 161;
-            }
-        } else if (data.formula === 'katch') {
-            const bf = data.bf || 20; // fallback safe
-            bmr = 370 + (21.6 * (1 - (bf / 100)) * data.peso);
-        }
-
-        const tdee = bmr * Number(data.fator_atividade);
-
-        let metaKcal = Math.round(tdee);
-        if (data.objetivo === 'perder') metaKcal -= 500;
-        if (data.objetivo === 'ganhar') metaKcal += 500;
-
-        // standard dynamic macro calculation
-        const protein = Math.round(data.peso * 2.0); // 2g/kg
-        const fat = Math.round(data.peso * 1.0); // 1g/kg
-        const proteinKcal = protein * 4;
-        const fatKcal = fat * 9;
-
-        let carbsKcal = metaKcal - (proteinKcal + fatKcal);
-        let carbs = Math.round(carbsKcal / 4);
-        if (carbs < 0) carbs = 0; // Edge case safeguard
-
-        setCalcResults({
-            bmr: Math.round(bmr),
-            tdee: Math.round(tdee),
-            metaKcal,
-            carbs,
-            protein,
-            fat,
-            peso: data.peso,
-            objetivo: data.objetivo
-        });
+        setCalcResults(calculateNutritionTargets(data));
     };
 
     const handleApply = async () => {
@@ -82,6 +54,9 @@ export default function Profile() {
             await updatePerfil({
                 meta_kcal: calcResults.metaKcal,
                 meta_agua_ml: metaAgua,
+                meta_carbo_g: calcResults.carbs,
+                meta_prot_g: calcResults.protein,
+                meta_gord_g: calcResults.fat,
                 peso_atual: calcResults.peso,
                 objetivo: calcResults.objetivo
             });
@@ -133,6 +108,34 @@ export default function Profile() {
                     <ChevronRight size={24} className="text-emerald-200" />
                 </button>
             )}
+
+            {perfil?.role !== 'nutri' && metasSugeridasPendentes.length > 0 && (() => {
+                const sugestao = metasSugeridasPendentes[0];
+                return (
+                    <div className="bg-gradient-to-r from-emerald-50 to-blue-50 border border-emerald-200 rounded-[24px] p-4 mb-6">
+                        <p className="text-sm font-bold text-gray-800 mb-1">📣 Seu nutricionista sugeriu novas metas</p>
+                        <p className="text-xs text-gray-600 mb-4">
+                            {sugestao.meta_kcal} kcal (Carbo: {sugestao.carbo_g}g, Prot: {sugestao.prot_g}g, Gord: {sugestao.gord_g}g)
+                        </p>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={() => aceitarMetaSugerida(sugestao.id)}
+                                disabled={isRespondendoMetaSugerida}
+                                className="flex-1 bg-emerald-500 text-white text-sm font-bold py-2.5 rounded-xl hover:bg-emerald-600 disabled:opacity-50"
+                            >
+                                Aceitar
+                            </button>
+                            <button
+                                onClick={() => recusarMetaSugerida(sugestao.id)}
+                                disabled={isRespondendoMetaSugerida}
+                                className="flex-1 bg-white border border-gray-200 text-gray-700 text-sm font-bold py-2.5 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                            >
+                                Recusar
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {planosCliente && planosCliente.length > 0 && (
                 <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[32px] shadow-sm border border-emerald-100 overflow-hidden mb-6">

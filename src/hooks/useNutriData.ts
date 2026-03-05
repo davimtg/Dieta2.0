@@ -173,6 +173,32 @@ export function useNutriData() {
         }
     });
 
+    const enviarMetaSugeridaMutation = useMutation({
+        mutationFn: async (payload: {
+            pacienteId: string;
+            meta_kcal: number;
+            carbo_g: number;
+            prot_g: number;
+            gord_g: number;
+        }) => {
+            const { data, error } = await supabase
+                .from('metas_sugeridas')
+                .insert({
+                    nutri_id: userId,
+                    paciente_id: payload.pacienteId,
+                    meta_kcal: payload.meta_kcal,
+                    carbo_g: payload.carbo_g,
+                    prot_g: payload.prot_g,
+                    gord_g: payload.gord_g,
+                    status: 'pendente'
+                })
+                .select()
+                .single();
+            if (error) throw error;
+            return data;
+        }
+    });
+
     // Salvar Rascunho: Reescrita atômica de todos os itens do plano
     const saveDraftMutation = useMutation({
         mutationFn: async ({ planoId, itens }: { planoId: string, itens: any[] }) => {
@@ -218,5 +244,7 @@ export function useNutriData() {
         isUpdatingStatus: updatePlanoStatusMutation.isPending,
         updateClientePerfil: updateClientePerfilMutation.mutateAsync,
         isUpdatingClientePerfil: updateClientePerfilMutation.isPending,
+        enviarMetaSugerida: enviarMetaSugeridaMutation.mutateAsync,
+        isEnviandoMetaSugerida: enviarMetaSugeridaMutation.isPending,
     };
 }

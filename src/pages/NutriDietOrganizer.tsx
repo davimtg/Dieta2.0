@@ -69,7 +69,7 @@ const getReceitaMacros = (receita: any): any => {
 export default function NutriDietOrganizer() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { planos, isLoading, saveDraft, isSavingDraft, updatePlanoStatus, isUpdatingStatus } = useNutriData();
+    const { planos, clientes, isLoading, saveDraft, isSavingDraft, updatePlanoStatus, isUpdatingStatus } = useNutriData();
 
     const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
     const [localItems, setLocalItems] = useState<LocalItem[]>([]);
@@ -83,6 +83,7 @@ export default function NutriDietOrganizer() {
 
     // Inicializar o estado local com os dados do plano ao montar
     const plano = planos.find((p: any) => p.id === id);
+    const pacientePerfil = clientes.find((c: any) => c.cliente_id === plano?.cliente_id)?.usuarios_perfil as any;
 
     useEffect(() => {
         if (plano?.plano_alimentar_itens) {
@@ -226,6 +227,13 @@ export default function NutriDietOrganizer() {
         };
     }, { carbo: 0, prot: 0, gord: 0, kcal: 0 });
 
+    const metasPaciente = {
+        kcal: Number(pacientePerfil?.meta_kcal) || 0,
+        carbo: Number(pacientePerfil?.meta_carbo_g) || 0,
+        prot: Number(pacientePerfil?.meta_prot_g) || 0,
+        gord: Number(pacientePerfil?.meta_gord_g) || 0
+    };
+
     // items for the currently selected day
 
     return (
@@ -289,6 +297,16 @@ export default function NutriDietOrganizer() {
                         <button onClick={() => setSelectedDay(prev => prev === 6 ? 0 : prev + 1)} className="p-1 text-gray-400 hover:text-gray-700">
                             <ChevronRight size={20} />
                         </button>
+                    </div>
+
+                    <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-3">
+                        <p className="text-xs font-bold text-emerald-700 mb-1">Metas Atuais do Paciente</p>
+                        <p className="text-xs text-emerald-800">
+                            {metasPaciente.kcal} Kcal | C: {metasPaciente.carbo}g | P: {metasPaciente.prot}g | G: {metasPaciente.gord}g
+                        </p>
+                        <p className="text-[11px] text-emerald-700/80 mt-1">
+                            Dia selecionado: {Math.round(diaMacros.kcal)} Kcal | C: {Math.round(diaMacros.carbo)}g | P: {Math.round(diaMacros.prot)}g | G: {Math.round(diaMacros.gord)}g
+                        </p>
                     </div>
                 </div>
             </div>

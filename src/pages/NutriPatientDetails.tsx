@@ -1,14 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, UserRound, Target, Weight, Droplets, Ruler, Calendar, VenusAndMars } from 'lucide-react';
+import { ArrowLeft, Save, UserRound, Target, Weight, Droplets, Ruler, Calendar, VenusAndMars, Activity } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import { useNutriData } from '../hooks/useNutriData';
+import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
+import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
+import { calculateNutritionTargets } from '../lib/nutritionCalculator';
 
 export default function NutriPatientDetails() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { perfil, isLoading: loadingPerfil } = useDietData(new Date());
-    const { clientes, isLoading, updateClientePerfil, isUpdatingClientePerfil } = useNutriData();
+    const {
+        clientes,
+        isLoading,
+        updateClientePerfil,
+        isUpdatingClientePerfil,
+        enviarMetaSugerida,
+        isEnviandoMetaSugerida
+    } = useNutriData();
 
     const vinculo = useMemo(() => {
         if (!id) return null;
@@ -34,6 +44,9 @@ export default function NutriPatientDetails() {
     const [altura, setAltura] = useState<string>('');
     const [idade, setIdade] = useState<string>('');
     const [sexo, setSexo] = useState<string>('');
+    const [showCalc, setShowCalc] = useState(false);
+    const [calcResults, setCalcResults] = useState<Omit<CalculatorResultsProps, 'onApply'> | null>(null);
+    const [toastMessage, setToastMessage] = useState<string>('');
 
     useEffect(() => {
         if (!vinculo) return;
@@ -78,6 +91,29 @@ export default function NutriPatientDetails() {
         }
     };
 
+    const handleCalculate = (data: CalculatorInputs) => {
+        setCalcResults(calculateNutritionTargets(data));
+    };
+
+    const handleSendSuggestedGoals = async () => {
+        if (!vinculo?.cliente_id || !calcResults) return;
+
+        try {
+            await enviarMetaSugerida({
+                pacienteId: vinculo.cliente_id,
+                meta_kcal: calcResults.metaKcal,
+                carbo_g: calcResults.carbs,
+                prot_g: calcResults.protein,
+                gord_g: calcResults.fat
+            });
+            setToastMessage('Sugestão de metas enviada ao paciente com sucesso.');
+            setTimeout(() => setToastMessage(''), 3000);
+        } catch (error: any) {
+            console.error(error);
+            alert(`Não foi possível enviar a sugestão: ${error?.message || 'erro desconhecido'}`);
+        }
+    };
+
     if (loadingPerfil || isLoading) {
         return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-emerald-500 font-semibold animate-pulse">Carregando paciente...</p></div>;
     }
@@ -119,6 +155,12 @@ export default function NutriPatientDetails() {
             </div>
 
             <div className="p-6 space-y-4">
+                {toastMessage && (
+                    <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm font-semibold rounded-xl px-4 py-3">
+                        {toastMessage}
+                    </div>
+                )}
+
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
                     <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
                         <UserRound size={22} />
@@ -227,6 +269,49 @@ export default function NutriPatientDetails() {
                         <p className="text-xs text-amber-600 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
                             Campos adicionais como altura/idade/sexo não estão disponíveis na tabela de perfil deste projeto.
                         </p>
+                    )}
+                </div>
+
+                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                    <button
+                        onClick={() => {
+                            setShowCalc(!showCalc);
+                            if (showCalc) setCalcResults(null);
+                        }}
+                        className="w-full p-4 text-left flex items-center justify-between hover:bg-emerald-50 transition"
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="bg-emerald-100 p-2 rounded-xl text-emerald-600"><Activity size={16} /></div>
+                            <span className="font-bold text-gray-800 text-sm">Calculadora de Macros (TDEE)</span>
+                        </div>
+                        <span className="text-emerald-500 font-bold text-sm">{showCalc ? '-' : '+'}</span>
+                    </button>
+
+                    {showCalc && (
+                        <div className="p-4 border-t border-gray-100">
+                            <NutritionalCalculatorForm
+                                defaultValues={{
+                                    peso: Number(clientePerfil?.peso_atual) || 70,
+                                    objetivo: (clientePerfil?.objetivo as any) || 'manter',
+                                    ...(idadeKey ? { idade: Number(clientePerfil?.[idadeKey]) || 25 } : {}),
+                                    ...(alturaKey ? { altura: Number(clientePerfil?.[alturaKey]) || 170 } : {}),
+                                    ...(sexoKey ? { sexo: (clientePerfil?.[sexoKey] === 'F' ? 'F' : 'M') } : {})
+                                }}
+                                onCalculate={handleCalculate}
+                            />
+
+                            {calcResults && (
+                                <NutritionalCalculatorResults
+                                    {...calcResults}
+                                    mode="nutricionista"
+                                    onApply={handleSendSuggestedGoals}
+                                />
+                            )}
+
+                            {isEnviandoMetaSugerida && (
+                                <p className="text-xs text-emerald-600 font-semibold mt-2">Enviando sugestão...</p>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
