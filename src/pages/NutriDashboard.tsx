@@ -71,7 +71,11 @@ export default function NutriDashboard() {
                             </div>
                         ) : (
                             clientes.map((vinc: any) => (
-                                <div key={vinc.id} className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                                <button
+                                    key={vinc.id}
+                                    onClick={() => navigate(`/nutri/paciente/${vinc.cliente_id}`)}
+                                    className="w-full bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 text-left hover:border-emerald-200 hover:bg-emerald-50/30 transition-colors"
+                                >
                                     <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold text-lg shrink-0">
                                         {((vinc.usuarios_perfil as any)?.username || (vinc.usuarios_perfil as any)?.raw_user_meta_data?.username || 'P')?.[0]?.toUpperCase()}
                                     </div>
@@ -79,12 +83,15 @@ export default function NutriDashboard() {
                                         <h3 className="font-bold text-gray-800">{(vinc.usuarios_perfil as any)?.username || (vinc.usuarios_perfil as any)?.raw_user_meta_data?.username || 'Paciente Sem Nome'}</h3>
                                         <p className="text-xs text-gray-500 font-medium">Meta: {(vinc.usuarios_perfil as any)?.meta_kcal || 0} kcal</p>
                                     </div>
-                                    {vinc.status === 'active' ? (
-                                        <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Ativo</span>
-                                    ) : (
-                                        <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Pendente</span>
-                                    )}
-                                </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                        {vinc.status === 'active' ? (
+                                            <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Ativo</span>
+                                        ) : (
+                                            <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">Pendente</span>
+                                        )}
+                                        <ChevronRight size={16} className="text-emerald-400" />
+                                    </div>
+                                </button>
                             ))
                         )}
                     </div>

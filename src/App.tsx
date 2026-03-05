@@ -8,6 +8,7 @@ import ShoppingList from './pages/ShoppingList';
 import Profile from './pages/Profile';
 import NutriDashboard from './pages/NutriDashboard';
 import NutriDietOrganizer from './pages/NutriDietOrganizer';
+import NutriPatientDetails from './pages/NutriPatientDetails';
 import Auth from './pages/Auth';
 import { useAuth } from './hooks/useAuth';
 import { DateProvider } from './contexts/DateContext';
@@ -46,6 +47,7 @@ function App() {
                 <Route path="/shopping-list" element={<ShoppingList />} />
                 <Route path="/profile" element={<Profile />} />
                 <Route path="/nutri" element={<NutriDashboard />} />
+                <Route path="/nutri/paciente/:id" element={<NutriPatientDetails />} />
                 <Route path="/nutri/plano/:id" element={<NutriDietOrganizer />} />
               </Routes>
             </div>

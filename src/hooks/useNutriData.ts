@@ -156,6 +156,23 @@ export function useNutriData() {
         }
     });
 
+    const updateClientePerfilMutation = useMutation({
+        mutationFn: async ({ clienteId, updates }: { clienteId: string, updates: any }) => {
+            const { data, error } = await supabase
+                .from('usuarios_perfil')
+                .update(updates)
+                .eq('id', clienteId)
+                .select()
+                .maybeSingle();
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['nutri_clientes', userId] });
+        }
+    });
+
     // Salvar Rascunho: Reescrita atômica de todos os itens do plano
     const saveDraftMutation = useMutation({
         mutationFn: async ({ planoId, itens }: { planoId: string, itens: any[] }) => {
@@ -199,5 +216,7 @@ export function useNutriData() {
         isSavingDraft: saveDraftMutation.isPending,
         updatePlanoStatus: updatePlanoStatusMutation.mutateAsync,
         isUpdatingStatus: updatePlanoStatusMutation.isPending,
+        updateClientePerfil: updateClientePerfilMutation.mutateAsync,
+        isUpdatingClientePerfil: updateClientePerfilMutation.isPending,
     };
 }
