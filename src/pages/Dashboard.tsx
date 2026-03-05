@@ -9,7 +9,18 @@ import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
     const { selectedDate, setSelectedDate } = useGlobalDate();
-    const { refeicoes, perfil, isLoading, deleteItem, updateItemSugestao, swapSugestao } = useDietData(selectedDate);
+    const {
+        refeicoes,
+        perfil,
+        isLoading,
+        deleteItem,
+        updateItemSugestao,
+        swapSugestao,
+        metasSugeridasPendentes,
+        aceitarMetaSugerida,
+        recusarMetaSugerida,
+        isRespondendoMetaSugerida
+    } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
@@ -94,10 +105,10 @@ export default function Dashboard() {
         });
     });
 
-    // Mock das metas de Macros (ideais da dieta)
-    const goalCarbs = Math.round((goalKcal * 0.45) / 4); // 45% carbs
-    const goalProt = Math.round((goalKcal * 0.3) / 4); // 30% prot
-    const goalFat = Math.round((goalKcal * 0.25) / 9); // 25% fat
+    // Metas de Macros (do perfil, ou fallback default baseado nas kcals)
+    const goalCarbs = perfil?.meta_carbo_g ? Number(perfil.meta_carbo_g) : Math.round((goalKcal * 0.45) / 4);
+    const goalProt = perfil?.meta_prot_g ? Number(perfil.meta_prot_g) : Math.round((goalKcal * 0.3) / 4);
+    const goalFat = perfil?.meta_gord_g ? Number(perfil.meta_gord_g) : Math.round((goalKcal * 0.25) / 9);
 
     const remainingKcal = Math.max(0, goalKcal - Math.round(totalKcal));
     const circlePercentage = Math.min(100, (Math.round(totalKcal) / goalKcal) * 100);
@@ -156,6 +167,40 @@ export default function Dashboard() {
                     </button>
                 )}
             </div>
+
+            {metasSugeridasPendentes && metasSugeridasPendentes.length > 0 && (
+                <div className="px-6 mb-6">
+                    <div className="bg-emerald-600/50 backdrop-blur-sm border border-emerald-400 rounded-3xl p-4 flex flex-col gap-3 relative shadow-inner">
+                        <div className="flex items-start gap-3">
+                            <div className="bg-emerald-50 text-emerald-600 rounded-full p-2 shrink-0">
+                                <Check size={20} />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-white text-sm">Seu nutricionista sugeriu novas metas!</h3>
+                                <p className="text-emerald-100 text-xs mt-1">
+                                    {metasSugeridasPendentes[0].meta_kcal} kcal • Carb: {metasSugeridasPendentes[0].carbo_g}g • Prot: {metasSugeridasPendentes[0].prot_g}g • Gord: {metasSugeridasPendentes[0].gord_g}g
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex gap-2 mt-1">
+                            <button
+                                onClick={() => recusarMetaSugerida(metasSugeridasPendentes[0].id)}
+                                disabled={isRespondendoMetaSugerida}
+                                className="flex-1 bg-white/10 hover:bg-white/20 text-white text-xs font-bold py-2 rounded-xl transition disabled:opacity-50"
+                            >
+                                Recusar
+                            </button>
+                            <button
+                                onClick={() => aceitarMetaSugerida(metasSugeridasPendentes[0].id)}
+                                disabled={isRespondendoMetaSugerida}
+                                className="flex-1 bg-white text-emerald-600 hover:bg-emerald-50 text-xs font-bold py-2 rounded-xl transition disabled:opacity-50 shadow-sm"
+                            >
+                                Aceitar Metas
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="px-6 relative">
                 {/* Main Progress Card */}

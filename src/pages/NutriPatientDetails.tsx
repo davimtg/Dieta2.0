@@ -39,6 +39,9 @@ export default function NutriPatientDetails() {
 
     const [pesoAtual, setPesoAtual] = useState<string>('');
     const [metaKcal, setMetaKcal] = useState<string>('');
+    const [metaCarbo, setMetaCarbo] = useState<string>('');
+    const [metaProt, setMetaProt] = useState<string>('');
+    const [metaGord, setMetaGord] = useState<string>('');
     const [metaAguaMl, setMetaAguaMl] = useState<string>('');
     const [objetivo, setObjetivo] = useState<string>('manter');
     const [altura, setAltura] = useState<string>('');
@@ -53,6 +56,9 @@ export default function NutriPatientDetails() {
 
         setPesoAtual(String(clientePerfil?.peso_atual ?? ''));
         setMetaKcal(String(clientePerfil?.meta_kcal ?? ''));
+        setMetaCarbo(String(clientePerfil?.meta_carbo_g ?? ''));
+        setMetaProt(String(clientePerfil?.meta_prot_g ?? ''));
+        setMetaGord(String(clientePerfil?.meta_gord_g ?? ''));
         setMetaAguaMl(String(clientePerfil?.meta_agua_ml ?? ''));
         setObjetivo(String(clientePerfil?.objetivo ?? 'manter'));
         setAltura(String(alturaKey ? (clientePerfil?.[alturaKey] ?? '') : ''));
@@ -66,6 +72,9 @@ export default function NutriPatientDetails() {
         const updates: any = {
             peso_atual: pesoAtual ? Number(pesoAtual) : null,
             meta_kcal: metaKcal ? Number(metaKcal) : null,
+            meta_carbo_g: metaCarbo ? Number(metaCarbo) : null,
+            meta_prot_g: metaProt ? Number(metaProt) : null,
+            meta_gord_g: metaGord ? Number(metaGord) : null,
             meta_agua_ml: metaAguaMl ? Number(metaAguaMl) : null,
             objetivo: objetivo || null,
         };
@@ -196,6 +205,21 @@ export default function NutriPatientDetails() {
                                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm"
                                 min="0"
                             />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-gray-600 font-semibold flex items-center gap-1 mb-1"><Target size={13} /> Meta Carbo (g)</label>
+                            <input type="number" value={metaCarbo} onChange={(e) => setMetaCarbo(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm" min="0" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-gray-600 font-semibold flex items-center gap-1 mb-1"><Target size={13} /> Meta Prot (g)</label>
+                            <input type="number" value={metaProt} onChange={(e) => setMetaProt(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm" min="0" />
+                        </div>
+
+                        <div>
+                            <label className="text-xs text-gray-600 font-semibold flex items-center gap-1 mb-1"><Target size={13} /> Meta Gord (g)</label>
+                            <input type="number" value={metaGord} onChange={(e) => setMetaGord(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 text-sm" min="0" />
                         </div>
 
                         <div>

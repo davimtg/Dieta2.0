@@ -299,37 +299,78 @@ export default function NutriDietOrganizer() {
                         </button>
                     </div>
 
-                    <div className="mt-3 bg-emerald-50 border border-emerald-100 rounded-2xl p-3">
-                        <p className="text-xs font-bold text-emerald-700 mb-1">Metas Atuais do Paciente</p>
-                        <p className="text-xs text-emerald-800">
-                            {metasPaciente.kcal} Kcal | C: {metasPaciente.carbo}g | P: {metasPaciente.prot}g | G: {metasPaciente.gord}g
-                        </p>
-                        <p className="text-[11px] text-emerald-700/80 mt-1">
-                            Dia selecionado: {Math.round(diaMacros.kcal)} Kcal | C: {Math.round(diaMacros.carbo)}g | P: {Math.round(diaMacros.prot)}g | G: {Math.round(diaMacros.gord)}g
-                        </p>
-                    </div>
                 </div>
             </div>
 
-            {/* Macros do dia */}
+            {/* Macros do dia / Resumo Planejado vs Meta */}
             <div className="max-w-2xl mx-auto px-4 py-3">
-                <div className="bg-white rounded-2xl p-4 border border-gray-100 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Flame size={16} className="text-orange-400" />
-                        <span className="text-sm font-bold text-gray-700">Total {diasSemana[selectedDay]}: {Math.round(diaMacros.kcal)} kcal</span>
+                <div className="bg-white rounded-3xl p-5 border border-gray-100 mb-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
+                    <div className="flex justify-between items-center mb-5">
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                            <Flame size={16} className="text-orange-400" /> Resumo de {diasSemana[selectedDay]}
+                        </h3>
                     </div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="bg-blue-50 rounded-xl p-2 text-center">
-                            <div className="font-bold text-blue-700">{Math.round(diaMacros.carbo)}g</div>
-                            <div className="text-blue-500">Carbs</div>
+
+                    <div className="flex items-center gap-5 mb-5 pb-5 border-b border-gray-50">
+                        {/* Calorias Ring */}
+                        <div className="relative w-[72px] h-[72px] flex items-center justify-center shrink-0">
+                            <svg className="w-full h-full transform -rotate-90">
+                                <circle cx="36" cy="36" r="32" fill="transparent" stroke="#f3f4f6" strokeWidth="6" />
+                                <circle
+                                    cx="36" cy="36" r="32"
+                                    fill="transparent"
+                                    stroke="#10b981"
+                                    strokeWidth="6"
+                                    strokeDasharray={201.06}
+                                    strokeDashoffset={201.06 - (201.06 * Math.min(100, Math.round(diaMacros.kcal) / (metasPaciente.kcal || 1) * 100)) / 100}
+                                    strokeLinecap="round"
+                                    className="transition-all duration-1000 ease-out"
+                                />
+                            </svg>
+                            <div className="absolute flex flex-col items-center justify-center">
+                                <span className="text-sm font-bold text-emerald-600 leading-none">{Math.round(diaMacros.kcal)}</span>
+                                <span className="text-[9px] text-gray-400 font-medium mt-0.5">kcal</span>
+                            </div>
                         </div>
-                        <div className="bg-red-50 rounded-xl p-2 text-center">
-                            <div className="font-bold text-red-600">{Math.round(diaMacros.prot)}g</div>
-                            <div className="text-red-400">Prot</div>
+
+                        <div className="flex-1">
+                            <div className="flex justify-between items-end mb-1.5 text-xs">
+                                <span className="font-bold text-gray-700">Calorias (kcal)</span>
+                                <span className="text-gray-400">Meta: <span className="font-bold text-gray-800">{metasPaciente.kcal || 0}</span></span>
+                            </div>
+                            <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.min(100, (Math.round(diaMacros.kcal) / (metasPaciente.kcal || 1)) * 100)}%` }}></div>
+                            </div>
                         </div>
-                        <div className="bg-yellow-50 rounded-xl p-2 text-center">
-                            <div className="font-bold text-yellow-600">{Math.round(diaMacros.gord)}g</div>
-                            <div className="text-yellow-500">Gord</div>
+                    </div>
+
+                    {/* Macros Grid */}
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-blue-50/70 rounded-2xl p-3 text-center border border-blue-100/50">
+                            <span className="block text-[10px] font-bold text-blue-500 mb-1 tracking-wide">CARBOS</span>
+                            <div className="flex items-baseline justify-center gap-0.5">
+                                <span className="text-lg font-black text-gray-800 leading-none">{Math.round(diaMacros.carbo)}</span>
+                                <span className="text-[10px] font-bold text-gray-500">g</span>
+                            </div>
+                            <div className="mt-2 text-[10px] text-gray-400 font-medium bg-white/50 py-1 rounded-lg">Meta: {metasPaciente.carbo || 0}g</div>
+                        </div>
+
+                        <div className="bg-red-50/70 rounded-2xl p-3 text-center border border-red-100/50">
+                            <span className="block text-[10px] font-bold text-red-500 mb-1 tracking-wide">PROTEÍNAS</span>
+                            <div className="flex items-baseline justify-center gap-0.5">
+                                <span className="text-lg font-black text-gray-800 leading-none">{Math.round(diaMacros.prot)}</span>
+                                <span className="text-[10px] font-bold text-gray-500">g</span>
+                            </div>
+                            <div className="mt-2 text-[10px] text-gray-400 font-medium bg-white/50 py-1 rounded-lg">Meta: {metasPaciente.prot || 0}g</div>
+                        </div>
+
+                        <div className="bg-yellow-50/70 rounded-2xl p-3 text-center border border-yellow-100/50">
+                            <span className="block text-[10px] font-bold text-yellow-600 mb-1 tracking-wide">GORDURAS</span>
+                            <div className="flex items-baseline justify-center gap-0.5">
+                                <span className="text-lg font-black text-gray-800 leading-none">{Math.round(diaMacros.gord)}</span>
+                                <span className="text-[10px] font-bold text-gray-500">g</span>
+                            </div>
+                            <div className="mt-2 text-[10px] text-gray-400 font-medium bg-white/50 py-1 rounded-lg">Meta: {metasPaciente.gord || 0}g</div>
                         </div>
                     </div>
                 </div>
@@ -381,47 +422,47 @@ export default function NutriDietOrganizer() {
                                                         <span className="font-semibold text-gray-800 text-sm">{nome}</span>
                                                         <div className="flex items-center gap-2 mt-0.5">
                                                             <span className="text-xs text-gray-500">{item.quantidade_g}{unidade}</span>
-                                                        <div className="flex items-center gap-2 mt-1.5">
-                                                            {/* Badge de Calorias */}
-                                                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
-                                                                {kcal} kcal
-                                                            </span>
+                                                            <div className="flex items-center gap-2 mt-1.5">
+                                                                {/* Badge de Calorias */}
+                                                                <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-100">
+                                                                    {kcal} kcal
+                                                                </span>
 
-                                                            {/* Macros Detalhados */}
-                                                            {(() => {
-                                                                let macros = { p: 0, c: 0, g: 0 };
-                                                                if (item.alimentos) {
-                                                                    const ratio = item.quantidade_g / item.alimentos.porcao_base_g;
-                                                                    macros = {
-                                                                        p: item.alimentos.prot * ratio,
-                                                                        c: item.alimentos.carbo * ratio,
-                                                                        g: item.alimentos.gord * ratio
-                                                                    };
-                                                                } else if (item.receitas) {
-                                                                    const r = getReceitaMacros(item.receitas);
-                                                                    const multiplier = getRecipeMultiplier(item.receitas, item.quantidade_g);
-                                                                    macros = {
-                                                                        p: r.prot * multiplier,
-                                                                        c: r.carbo * multiplier,
-                                                                        g: r.gord * multiplier
-                                                                    };
-                                                                }
+                                                                {/* Macros Detalhados */}
+                                                                {(() => {
+                                                                    let macros = { p: 0, c: 0, g: 0 };
+                                                                    if (item.alimentos) {
+                                                                        const ratio = item.quantidade_g / item.alimentos.porcao_base_g;
+                                                                        macros = {
+                                                                            p: item.alimentos.prot * ratio,
+                                                                            c: item.alimentos.carbo * ratio,
+                                                                            g: item.alimentos.gord * ratio
+                                                                        };
+                                                                    } else if (item.receitas) {
+                                                                        const r = getReceitaMacros(item.receitas);
+                                                                        const multiplier = getRecipeMultiplier(item.receitas, item.quantidade_g);
+                                                                        macros = {
+                                                                            p: r.prot * multiplier,
+                                                                            c: r.carbo * multiplier,
+                                                                            g: r.gord * multiplier
+                                                                        };
+                                                                    }
 
-                                                                return (
-                                                                    <div className="flex gap-1.5">
-                                                                        <span className="text-[10px] font-medium text-blue-600">
-                                                                            <span className="opacity-60">C:</span> {Math.round(macros.c)}g
-                                                                        </span>
-                                                                        <span className="text-[10px] font-medium text-red-600">
-                                                                            <span className="opacity-60">P:</span> {Math.round(macros.p)}g
-                                                                        </span>
-                                                                        <span className="text-[10px] font-medium text-amber-600">
-                                                                            <span className="opacity-60">G:</span> {Math.round(macros.g)}g
-                                                                        </span>
-                                                                    </div>
-                                                                );
-                                                            })()}
-                                                        </div>
+                                                                    return (
+                                                                        <div className="flex gap-1.5">
+                                                                            <span className="text-[10px] font-medium text-blue-600">
+                                                                                <span className="opacity-60">C:</span> {Math.round(macros.c)}g
+                                                                            </span>
+                                                                            <span className="text-[10px] font-medium text-red-600">
+                                                                                <span className="opacity-60">P:</span> {Math.round(macros.p)}g
+                                                                            </span>
+                                                                            <span className="text-[10px] font-medium text-amber-600">
+                                                                                <span className="opacity-60">G:</span> {Math.round(macros.g)}g
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })()}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                     <button
