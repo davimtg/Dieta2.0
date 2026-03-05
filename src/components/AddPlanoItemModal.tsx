@@ -34,6 +34,7 @@ export default function AddPlanoItemModal({
     const [selectedItem, setSelectedItem] = useState<any>(null);
     const [itemType, setItemType] = useState<'alimento' | 'receita'>('alimento');
     const [quantidade, setQuantidade] = useState<string>('100');
+    const [recipeQuantityUnit, setRecipeQuantityUnit] = useState<'porcao' | 'g'>('porcao');
 
     // Modais de criação in-flow
     const [isCreateFoodOpen, setIsCreateFoodOpen] = useState(false);
@@ -54,15 +55,52 @@ export default function AddPlanoItemModal({
         item.nome.toLowerCase().includes(search.toLowerCase())
     );
 
+    const isPesoVolumeRecipe = (receita: any) => receita?.tipo_rendimento === 'peso_volume';
+
+    const getDefaultRecipeUnit = (receita: any): 'porcao' | 'g' =>
+        isPesoVolumeRecipe(receita) ? 'g' : 'porcao';
+
+    const normalizeRecipeQuantityForStorage = (receita: any, inputValue: number, inputUnit: 'porcao' | 'g') => {
+        if (isPesoVolumeRecipe(receita)) {
+            return inputUnit === 'g' ? inputValue : inputValue * 100;
+        }
+
+        return inputUnit === 'porcao' ? inputValue : inputValue / 100;
+    };
+
+    const handleRecipeUnitChange = (nextUnit: 'porcao' | 'g') => {
+        if (itemType !== 'receita' || !selectedItem || recipeQuantityUnit === nextUnit) return;
+
+        const currentValue = Number(quantidade);
+        if (!Number.isFinite(currentValue) || currentValue <= 0) {
+            setRecipeQuantityUnit(nextUnit);
+            return;
+        }
+
+        const convertedValue = recipeQuantityUnit === 'porcao'
+            ? (nextUnit === 'g' ? currentValue * 100 : currentValue)
+            : (nextUnit === 'porcao' ? currentValue / 100 : currentValue);
+
+        setRecipeQuantityUnit(nextUnit);
+        setQuantidade((Math.round(convertedValue * 100) / 100).toString());
+    };
+
     const handleAdd = () => {
         if (!selectedItem) return;
+        const quantidadeNum = Number(quantidade);
+        if (!Number.isFinite(quantidadeNum) || quantidadeNum <= 0) return;
+
+        const quantidadeParaSalvar = itemType === 'receita'
+            ? normalizeRecipeQuantityForStorage(selectedItem, quantidadeNum, recipeQuantityUnit)
+            : quantidadeNum;
+
         if (onAdd) {
             onAdd({
                 dia_semana: diaSemana,
                 tipo_refeicao: tipoRefeicao,
                 alimento_id: itemType === 'alimento' ? selectedItem.id : undefined,
                 receita_id: itemType === 'receita' ? selectedItem.id : undefined,
-                quantidade_g: Number(quantidade),
+                quantidade_g: quantidadeParaSalvar,
                 alimentos: itemType === 'alimento' ? selectedItem : undefined,
                 receitas: itemType === 'receita' ? selectedItem : undefined,
                 substituicoes: []
@@ -93,6 +131,11 @@ export default function AddPlanoItemModal({
             }
         });
         const rendimento = parseFloat(receita.rendimento_quantidade) || receita.rendimento_porcoes || 1;
+        if (isPesoVolumeRecipe(receita)) {
+            const ratio = 100 / rendimento;
+            return { carbo: totalC * ratio, prot: totalP * ratio, gord: totalG * ratio, kcal: totalK * ratio };
+        }
+
         return { carbo: totalC / rendimento, prot: totalP / rendimento, gord: totalG / rendimento, kcal: totalK / rendimento };
     };
 
@@ -138,14 +181,22 @@ export default function AddPlanoItemModal({
                                                 onClick={() => {
                                                     setSelectedItem(item);
                                                     setItemType(item.type);
-                                                    setQuantidade(isReceita ? '1' : item.porcao_base_g.toString());
+                                                    if (isReceita) {
+                                                        const defaultUnit = getDefaultRecipeUnit(item);
+                                                        setRecipeQuantityUnit(defaultUnit);
+                                                        setQuantidade(defaultUnit === 'g' ? '100' : '1');
+                                                    } else {
+                                                        setQuantidade(item.porcao_base_g.toString());
+                                                    }
                                                 }}
                                                 className="w-full flex justify-between items-center p-4 bg-gray-50 rounded-2xl hover:bg-emerald-50 transition-colors text-left"
                                             >
                                                 <div>
                                                     <h4 className="font-semibold text-gray-800">{item.nome}</h4>
                                                     <p className="text-xs text-gray-500">
-                                                        {isReceita ? 'Receita • 1 Porção' : `${item.marca || 'Genérico'} • ${item.porcao_base_g}g`}
+                                                        {isReceita
+                                                            ? (isPesoVolumeRecipe(item) ? `Receita • 100${item.rendimento_unidade || 'g'}` : 'Receita • 1 Porção')
+                                                            : `${item.marca || 'Genérico'} • ${item.porcao_base_g}g`}
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
@@ -192,15 +243,47 @@ export default function AddPlanoItemModal({
 
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                            {itemType === 'receita' ? 'Quantidade de Porções' : 'Quantidade (g)'}
+                                            {itemType === 'receita'
+                                                ? `Quantidade (${recipeQuantityUnit === 'porcao' ? 'Porções' : 'Gramas'})`
+                                                : 'Quantidade (g)'}
                                         </label>
+                                        {itemType === 'receita' && (
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRecipeUnitChange('porcao')}
+                                                    className={`py-2 text-sm font-semibold rounded-xl border transition-colors ${recipeQuantityUnit === 'porcao'
+                                                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-emerald-300'
+                                                        }`}
+                                                >
+                                                    Porção
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleRecipeUnitChange('g')}
+                                                    className={`py-2 text-sm font-semibold rounded-xl border transition-colors ${recipeQuantityUnit === 'g'
+                                                        ? 'bg-emerald-500 border-emerald-500 text-white'
+                                                        : 'bg-white border-gray-200 text-gray-600 hover:border-emerald-300'
+                                                        }`}
+                                                >
+                                                    Gramas
+                                                </button>
+                                            </div>
+                                        )}
                                         <input
                                             type="number"
                                             value={quantidade}
                                             onChange={(e) => setQuantidade(e.target.value)}
                                             className="w-full bg-white border border-gray-200 rounded-2xl px-4 py-4 text-gray-800 text-lg font-bold focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-center"
-                                            min="1"
+                                            min="0.1"
+                                            step="0.1"
                                         />
+                                        {itemType === 'receita' && (
+                                            <p className="text-[11px] text-gray-500 mt-2">
+                                                Conversão usada: 1 porção = 100g para alternar entre unidades.
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
 

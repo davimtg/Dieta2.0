@@ -33,6 +33,11 @@ interface LocalItem {
 
 const makeLocalId = () => `local_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 
+const isPesoVolumeRecipe = (receita: any) => receita?.tipo_rendimento === 'peso_volume';
+
+const getRecipeMultiplier = (receita: any, quantidade: number) =>
+    isPesoVolumeRecipe(receita) ? quantidade / 100 : quantidade;
+
 const getReceitaMacros = (receita: any): any => {
     let totalC = 0, totalP = 0, totalG = 0, totalK = 0;
     receita.receita_ingredientes?.forEach((ri: any) => {
@@ -52,6 +57,12 @@ const getReceitaMacros = (receita: any): any => {
         }
     });
     const qtd = parseFloat(receita.rendimento_quantidade) || receita.rendimento_porcoes || 1;
+
+    if (isPesoVolumeRecipe(receita)) {
+        const ratio = 100 / qtd;
+        return { carbo: totalC * ratio, prot: totalP * ratio, gord: totalG * ratio, kcal: totalK * ratio };
+    }
+
     return { carbo: totalC / qtd, prot: totalP / qtd, gord: totalG / qtd, kcal: totalK / qtd };
 };
 
@@ -199,11 +210,12 @@ export default function NutriDietOrganizer() {
         }
         if (item.receitas) {
             const rMacros = getReceitaMacros(item.receitas);
+            const multiplier = getRecipeMultiplier(item.receitas, item.quantidade_g);
             itemMacros = {
-                carbo: rMacros.carbo * item.quantidade_g,
-                prot: rMacros.prot * item.quantidade_g,
-                gord: rMacros.gord * item.quantidade_g,
-                kcal: rMacros.kcal * item.quantidade_g
+                carbo: rMacros.carbo * multiplier,
+                prot: rMacros.prot * multiplier,
+                gord: rMacros.gord * multiplier,
+                kcal: rMacros.kcal * multiplier
             };
         }
         return {
@@ -335,9 +347,13 @@ export default function NutriDietOrganizer() {
                                             kcal = Math.round(item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g));
                                         }
                                         if (item.receitas) {
-                                            kcal = Math.round(getReceitaMacros(item.receitas).kcal * item.quantidade_g);
+                                            kcal = Math.round(getReceitaMacros(item.receitas).kcal * getRecipeMultiplier(item.receitas, item.quantidade_g));
                                         }
-                                        const unidade = item.receitas ? ' porç.' : 'g';
+                                        const unidade = item.receitas
+                                            ? (isPesoVolumeRecipe(item.receitas)
+                                                ? ` ${item.receitas.rendimento_unidade || 'g'}`
+                                                : (item.quantidade_g === 1 ? ' porção' : ' porções'))
+                                            : 'g';
 
                                         return (
                                             <div key={item._localId} className="bg-gray-50 rounded-xl p-3">
@@ -365,10 +381,11 @@ export default function NutriDietOrganizer() {
                                                                     };
                                                                 } else if (item.receitas) {
                                                                     const r = getReceitaMacros(item.receitas);
+                                                                    const multiplier = getRecipeMultiplier(item.receitas, item.quantidade_g);
                                                                     macros = {
-                                                                        p: r.prot * item.quantidade_g,
-                                                                        c: r.carbo * item.quantidade_g,
-                                                                        g: r.gord * item.quantidade_g
+                                                                        p: r.prot * multiplier,
+                                                                        c: r.carbo * multiplier,
+                                                                        g: r.gord * multiplier
                                                                     };
                                                                 }
 
