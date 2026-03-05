@@ -256,44 +256,48 @@ export default function Dashboard() {
 
                                                 return (
                                                     <div key={item.id} className={containerClass}>
-                                                        <div className="flex justify-between items-center mb-1">
-                                                            <span className="text-sm font-semibold text-gray-700">{item.alimentos.nome}</span>
-                                                            <span className="text-xs font-bold text-gray-900">{itemKcal} kcal</span>
-                                                        </div>
-                                                        <div className="flex justify-between items-center">
-                                                            <div className="flex flex-col">
-                                                                <span className="text-xs text-gray-700 font-medium">{item.quantidade_g}g</span>
-                                                                <span className="text-[10.5px] text-gray-500 mt-0.5 whitespace-nowrap">
-                                                                    C: <span className="font-medium text-gray-600">{itemC}g</span> •
-                                                                    P: <span className="font-medium text-gray-600">{itemP}g</span> •
-                                                                    G: <span className="font-medium text-gray-600">{itemG}g</span>
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="absolute inset-y-0 right-0 flex items-center pr-2 gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div className="flex items-start gap-3 w-full">
                                                             {item.is_sugestao && (
                                                                 <button
                                                                     onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
-                                                                    className="p-1.5 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition-colors"
-                                                                    title="Confirmar consumo"
+                                                                    className="mt-0.5 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
+                                                                    title="Marcar como consumido"
                                                                 >
-                                                                    <Check size={16} />
+                                                                    <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
                                                                 </button>
                                                             )}
-                                                            <button
-                                                                onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
-                                                                className="p-1.5 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
-                                                                title="Editar quantidade"
-                                                            >
-                                                                <Edit2 size={16} />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => deleteItem(item.id)}
-                                                                className="p-1.5 text-red-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
-                                                                title="Remover item"
-                                                            >
-                                                                <Trash2 size={16} />
-                                                            </button>
+                                                            <div className="flex-1 w-full relative min-w-0">
+                                                                <div className="flex justify-between items-start mb-1 pr-6 gap-2">
+                                                                    <span className="text-sm font-semibold text-gray-700 leading-tight break-words">{item.alimentos.nome}</span>
+                                                                    <span className="text-xs font-bold text-gray-900 shrink-0">{itemKcal} kcal</span>
+                                                                </div>
+                                                                <div className="flex justify-between items-center pr-6">
+                                                                    <div className="flex flex-col">
+                                                                        <span className="text-xs text-gray-700 font-medium">{item.quantidade_g}g</span>
+                                                                        <span className="text-[10.5px] text-gray-500 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                                                                            C: <span className="font-medium text-gray-600">{itemC}g</span> •
+                                                                            P: <span className="font-medium text-gray-600">{itemP}g</span> •
+                                                                            G: <span className="font-medium text-gray-600">{itemG}g</span>
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <div className="absolute inset-y-0 right-0 top-1 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                    <button
+                                                                        onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
+                                                                        className="p-1 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
+                                                                        title="Editar quantidade"
+                                                                    >
+                                                                        <Edit2 size={16} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => deleteItem(item.id)}
+                                                                        className="p-1 text-red-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
+                                                                        title="Remover item"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 );
@@ -310,74 +314,74 @@ export default function Dashboard() {
 
                                                 return (
                                                     <div key={item.id} className={containerClass}>
-                                                        <div className="flex justify-between items-start mb-1 gap-2">
-                                                            <span className="text-sm font-bold text-gray-800 leading-tight pt-1">{item.receitas.nome}</span>
-                                                            <div className="flex items-center justify-end h-8 min-w-[80px]">
-                                                                <span className="text-xs font-bold text-emerald-700 group-hover:hidden">{itemKcal} kcal</span>
-                                                                <div className="hidden group-hover:flex items-center gap-1 -mr-1">
-                                                                    {item.is_sugestao && (
-                                                                        <button
-                                                                            onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
-                                                                            className="p-1.5 text-white bg-emerald-500 hover:bg-emerald-600 rounded-lg shadow-sm transition-colors"
-                                                                            title="Confirmar consumo"
-                                                                        >
-                                                                            <Check size={16} />
-                                                                        </button>
-                                                                    )}
-                                                                    <button
-                                                                        onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
-                                                                        className="p-1.5 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
-                                                                        title="Editar porções"
-                                                                    >
-                                                                        <Edit2 size={16} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => deleteItem(item.id)}
-                                                                        className="p-1.5 text-red-400 hover:bg-red-200/50 hover:text-red-600 rounded-lg transition-colors"
-                                                                        title="Remover receita"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
+                                                        <div className="flex items-start gap-3 w-full">
+                                                            {item.is_sugestao && (
+                                                                <button
+                                                                    onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
+                                                                    className="mt-1 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
+                                                                    title="Marcar como consumido"
+                                                                >
+                                                                    <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
+                                                                </button>
+                                                            )}
+                                                            <div className="flex-1 w-full relative min-w-0">
+                                                                <div className="flex justify-between items-start mb-1 gap-2 pr-6">
+                                                                    <span className="text-sm font-bold text-gray-800 leading-tight pt-0.5 break-words">{item.receitas.nome}</span>
+                                                                    <span className="text-xs font-bold text-emerald-700 shrink-0 pt-0.5">{itemKcal} kcal</span>
                                                                 </div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex justify-between items-center mb-2">
-                                                            <div className="flex flex-col items-start gap-1">
-                                                                <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">{item.quantidade_g} {item.quantidade_g === 1 ? 'porção' : 'porções'}</span>
-                                                                <span className="text-[10.5px] text-emerald-600/80 mt-0.5 whitespace-nowrap pl-0.5">
-                                                                    C: <span className="font-medium text-emerald-700/80">{recC}g</span> •
-                                                                    P: <span className="font-medium text-emerald-700/80">{recP}g</span> •
-                                                                    G: <span className="font-medium text-emerald-700/80">{recG}g</span>
-                                                                </span>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Nested Ingredients */}
-                                                        {item.receitas.receita_ingredientes?.length > 0 && (
-                                                            <div className="mt-1 pl-3 border-l-2 border-emerald-100 space-y-2 py-1">
-                                                                {item.receitas.receita_ingredientes.map((ri: any) => {
-                                                                    if (!ri.alimentos) return null;
-                                                                    const ingrRatio = (ri.quantidade_g * item.quantidade_g) / ri.alimentos.porcao_base_g;
-                                                                    const scaledAmount = Math.round(ri.quantidade_g * item.quantidade_g);
-                                                                    const ingrKcal = Math.round(ri.alimentos.kcal * ingrRatio);
-                                                                    const ingrC = Math.round(ri.alimentos.carbo * ingrRatio);
-                                                                    const ingrP = Math.round(ri.alimentos.prot * ingrRatio);
-                                                                    const ingrG = Math.round(ri.alimentos.gord * ingrRatio);
-
-                                                                    return (
-                                                                        <div key={ri.id} className="flex flex-col justify-center">
-                                                                            <div className="flex justify-between items-center">
-                                                                                <span className="text-[11px] text-gray-600 font-medium flex items-center gap-1.5 line-clamp-1"><span className="w-1 h-1 rounded-full bg-emerald-300 flex-shrink-0"></span> {ri.alimentos.nome}</span>
-                                                                                <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap ml-2">{scaledAmount}g • {ingrKcal} kcal</span>
-                                                                            </div>
-                                                                            <span className="text-[9.5px] text-gray-400 mt-0.5 pl-2.5">C:{ingrC}g P:{ingrP}g G:{ingrG}g</span>
+                                                                <div className="flex justify-between items-center mb-2 pr-6">
+                                                                    <div className="flex flex-col items-start gap-1">
+                                                                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">{item.quantidade_g} {item.quantidade_g === 1 ? 'porção' : 'porções'}</span>
+                                                                        <span className="text-[10.5px] text-emerald-600/80 mt-0.5 whitespace-nowrap pl-0.5 overflow-hidden text-ellipsis">
+                                                                            C: <span className="font-medium text-emerald-700/80">{recC}g</span> •
+                                                                            P: <span className="font-medium text-emerald-700/80">{recP}g</span> •
+                                                                            G: <span className="font-medium text-emerald-700/80">{recG}g</span>
+                                                                        </span>
+                                                                        <div className="absolute inset-y-0 right-0 top-0 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                            <button
+                                                                                onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
+                                                                                className="p-1 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
+                                                                                title="Editar porções"
+                                                                            >
+                                                                                <Edit2 size={16} />
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => deleteItem(item.id)}
+                                                                                className="p-1 text-red-400 hover:bg-red-200/50 hover:text-red-600 rounded-lg transition-colors"
+                                                                                title="Remover receita"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                            </button>
                                                                         </div>
-                                                                    );
-                                                                })}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Nested Ingredients */}
+                                                                {item.receitas.receita_ingredientes?.length > 0 && (
+                                                                    <div className="mt-1 pl-3 border-l-2 border-emerald-100 space-y-2 py-1 pr-6">
+                                                                        {item.receitas.receita_ingredientes.map((ri: any) => {
+                                                                            if (!ri.alimentos) return null;
+                                                                            const ingrRatio = (ri.quantidade_g * item.quantidade_g) / ri.alimentos.porcao_base_g;
+                                                                            const scaledAmount = Math.round(ri.quantidade_g * item.quantidade_g);
+                                                                            const ingrKcal = Math.round(ri.alimentos.kcal * ingrRatio);
+                                                                            const ingrC = Math.round(ri.alimentos.carbo * ingrRatio);
+                                                                            const ingrP = Math.round(ri.alimentos.prot * ingrRatio);
+                                                                            const ingrG = Math.round(ri.alimentos.gord * ingrRatio);
+
+                                                                            return (
+                                                                                <div key={ri.id} className="flex flex-col justify-center">
+                                                                                    <div className="flex justify-between items-center">
+                                                                                        <span className="text-[11px] text-gray-600 font-medium flex items-center gap-1.5 line-clamp-1"><span className="w-1 h-1 rounded-full bg-emerald-300 flex-shrink-0"></span> {ri.alimentos.nome}</span>
+                                                                                        <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap ml-2">{scaledAmount}g • {ingrKcal} kcal</span>
+                                                                                    </div>
+                                                                                    <span className="text-[9.5px] text-gray-400 mt-0.5 pl-2.5">C:{ingrC}g P:{ingrP}g G:{ingrG}g</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
-
-
+                                                        </div>
                                                     </div>
                                                 );
                                             }
@@ -418,6 +422,6 @@ export default function Dashboard() {
                 }}
                 item={selectedItemToEdit}
             />
-        </div>
+        </div >
     );
 }

@@ -119,6 +119,8 @@ export function useDietData(date: Date = new Date()) {
                         dia_semana,
                         tipo_refeicao,
                         quantidade_g,
+                        alimento_id,
+                        receita_id,
                         alimentos (*),
                         receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))))
                     ),
@@ -139,8 +141,8 @@ export function useDietData(date: Date = new Date()) {
                 .from('itens_consumidos')
                 .insert({
                     refeicao_id: refeicaoId,
-                    alimento_id: alimentoId,
-                    receita_id: receitaId,
+                    ...(alimentoId ? { alimento_id: alimentoId } : {}),
+                    ...(receitaId ? { receita_id: receitaId } : {}),
                     quantidade_g: quantidade,
                     is_sugestao: isSugestao
                 })
@@ -161,7 +163,7 @@ export function useDietData(date: Date = new Date()) {
                 const currentDate = new Date(start_date);
                 currentDate.setDate(currentDate.getDate() + i);
                 const dia_semana = currentDate.getDay(); // 0 a 6 (Domingo a Sábado)
-                const dateStr = currentDate.toISOString().split('T')[0];
+                const dateStr = format(currentDate, 'yyyy-MM-dd');
 
                 const itensDoDia = plano.plano_alimentar_itens.filter((item: any) => item.dia_semana === dia_semana);
 
@@ -189,8 +191,8 @@ export function useDietData(date: Date = new Date()) {
                         if (ref) {
                             inserts.push({
                                 refeicao_id: ref.id,
-                                alimento_id: planoItem.alimento_id,
-                                receita_id: planoItem.receita_id,
+                                ...(planoItem.alimento_id ? { alimento_id: planoItem.alimento_id } : {}),
+                                ...(planoItem.receita_id ? { receita_id: planoItem.receita_id } : {}),
                                 quantidade_g: planoItem.quantidade_g,
                                 is_sugestao: true
                             });

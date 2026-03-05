@@ -4,7 +4,7 @@ import { useDietData } from '../hooks/useDietData';
 import { useBluetoothScale } from '../hooks/useBluetoothScale';
 import { LogOut, User as UserIcon, Activity, Flame, Droplets, Bluetooth, Briefcase, ClipboardList, ChevronRight, Calendar } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { startOfWeek } from 'date-fns';
+import { format } from 'date-fns';
 
 import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
@@ -19,6 +19,11 @@ export default function Profile() {
 
     // State to hold calculator results
     const [calcResults, setCalcResults] = useState<Omit<CalculatorResultsProps, 'onApply'> | null>(null);
+
+    // Apply Diet Plan Modal state
+    const [applyPlanoData, setApplyPlanoData] = useState<any>(null);
+    const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+    const [isApplying, setIsApplying] = useState(false);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -148,13 +153,9 @@ export default function Profile() {
                                     <p className="text-xs text-gray-500 font-medium mb-4">Prescrito por {plano.nutricionista?.raw_user_meta_data?.username || 'Seu Nutricionista'}</p>
 
                                     <button
-                                        onClick={async () => {
-                                            if (window.confirm(`Aplicar dieta "${plano.nome}" a partir desta semana? Isso enviará Sugestões para o seu Diário.`)) {
-                                                const startOfWeekDate = startOfWeek(new Date(), { weekStartsOn: 0 }); // Domingo
-                                                await applyPlano({ plano, start_date: startOfWeekDate });
-                                                alert('Dieta aplicada na sua semana com Sucesso! Volte ao Diário.');
-                                                navigate('/dashboard');
-                                            }
+                                        onClick={() => {
+                                            setStartDate(format(new Date(), 'yyyy-MM-dd'));
+                                            setApplyPlanoData(plano);
                                         }}
                                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition"
                                     >
@@ -214,6 +215,60 @@ export default function Profile() {
                     </div>
                 )}
             </div>
+
+            {/* Apply Diet Modal Overlay */}
+            {applyPlanoData && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm slide-in-bottom-auto">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-sm">
+                        <h3 className="font-bold text-xl text-emerald-800 mb-2">Aplicar {applyPlanoData.nome}</h3>
+                        <p className="text-gray-600 text-sm mb-6">Selecione o dia para começar a dieta. As sugestões preencherão o seu Diário pelos próximos 7 dias mantendo os dias da semana corretos.</p>
+
+                        <div className="mb-6">
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Data de Início</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={e => setStartDate(e.target.value)}
+                                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 text-gray-800 font-medium"
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setApplyPlanoData(null)}
+                                disabled={isApplying}
+                                className="flex-1 py-3.5 bg-gray-100 rounded-xl font-bold text-gray-600 hover:bg-gray-200 transition"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={async () => {
+                                    setIsApplying(true);
+                                    try {
+                                        // Converter YYYY-MM-DD para Date local evitando fuso
+                                        const [ano, mes, dia] = startDate.split('-').map(Number);
+                                        const start = new Date(ano, mes - 1, dia);
+
+                                        await applyPlano({ plano: applyPlanoData, start_date: start });
+                                        alert('Dieta aplicada com Sucesso!');
+                                        navigate('/dashboard');
+                                    } catch (e) {
+                                        console.error(e);
+                                        alert('Erro ao aplicar o plano.');
+                                    } finally {
+                                        setIsApplying(false);
+                                        setApplyPlanoData(null);
+                                    }
+                                }}
+                                disabled={isApplying || !startDate}
+                                className="flex-1 py-3.5 bg-emerald-500 rounded-xl font-bold text-white hover:bg-emerald-600 disabled:opacity-50 transition"
+                            >
+                                {isApplying ? 'Aplicando...' : 'Confirmar'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Bluetooth Beta Feature */}
             <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-100 flex items-center justify-between mb-6">

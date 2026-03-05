@@ -60,6 +60,8 @@ export function useNutriData() {
                         dia_semana,
                         tipo_refeicao,
                         quantidade_g,
+                        alimento_id,
+                        receita_id,
                         alimentos (*),
                         receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))))
                     )
@@ -106,7 +108,14 @@ export function useNutriData() {
         }) => {
             const { data, error } = await supabase
                 .from('plano_alimentar_itens')
-                .insert(item)
+                .insert({
+                    plano_id: item.plano_id,
+                    dia_semana: item.dia_semana,
+                    tipo_refeicao: item.tipo_refeicao,
+                    ...(item.alimento_id ? { alimento_id: item.alimento_id } : {}),
+                    ...(item.receita_id ? { receita_id: item.receita_id } : {}),
+                    quantidade_g: item.quantidade_g
+                })
                 .select();
             if (error) throw error;
             return data;
