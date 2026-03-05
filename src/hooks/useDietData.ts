@@ -121,13 +121,15 @@ export function useDietData(date: Date = new Date()) {
                         quantidade_g,
                         alimento_id,
                         receita_id,
+                        substituicoes,
                         alimentos (*),
-                        receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))))
+                        receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*))))))
                     ),
                     nutricionista:usuarios_perfil!fk_plano_nutri (*)
                 `)
                 .eq('cliente_id', userId)
-                .eq('ativo', true);
+                .eq('ativo', true)
+                .eq('status', 'enviado');
             if (error) throw error;
             return data;
         },
@@ -194,7 +196,8 @@ export function useDietData(date: Date = new Date()) {
                                 ...(planoItem.alimento_id ? { alimento_id: planoItem.alimento_id } : {}),
                                 ...(planoItem.receita_id ? { receita_id: planoItem.receita_id } : {}),
                                 quantidade_g: planoItem.quantidade_g,
-                                is_sugestao: true
+                                is_sugestao: true,
+                                substituicoes: planoItem.substituicoes ?? []
                             });
                         }
                     }
@@ -210,6 +213,26 @@ export function useDietData(date: Date = new Date()) {
             queryClient.invalidateQueries({ queryKey: ['refeicoes', userId] });
         }
     });
+
+    const swapSugestaoMutation = useMutation({
+        mutationFn: async ({ itemId, alimentoId, receitaId, quantidade }: { itemId: string, alimentoId?: string, receitaId?: string, quantidade: number }) => {
+            const { data, error } = await supabase
+                .from('itens_consumidos')
+                .update({
+                    alimento_id: alimentoId ?? null,
+                    receita_id: receitaId ?? null,
+                    quantidade_g: quantidade
+                })
+                .eq('id', itemId)
+                .select();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId, formattedDate] });
+        }
+    });
+
 
     const updateItemMutation = useMutation({
         mutationFn: async ({ itemId, quantidade }: any) => {
@@ -273,13 +296,15 @@ export function useDietData(date: Date = new Date()) {
     });
 
     const addReceitaMutation = useMutation({
-        mutationFn: async (novaReceita: { nome: string; rendimento_porcoes: number; preparo: string; tempo_preparo_min?: number | null; imagem_url?: string; ingredientes: { alimento_id?: string; ingrediente_receita_id?: string; quantidade_g: number }[] }) => {
+        mutationFn: async (novaReceita: { nome: string; tipo_rendimento: string; rendimento_quantidade: number; rendimento_unidade: string; preparo: string; tempo_preparo_min?: number | null; imagem_url?: string; ingredientes: { alimento_id?: string; ingrediente_receita_id?: string; quantidade_g: number }[] }) => {
             // First insert recipe
             const { data: recipeData, error: recipeError } = await supabase
                 .from('receitas')
                 .insert({
                     nome: novaReceita.nome,
-                    rendimento_porcoes: novaReceita.rendimento_porcoes,
+                    tipo_rendimento: novaReceita.tipo_rendimento,
+                    rendimento_quantidade: novaReceita.rendimento_quantidade,
+                    rendimento_unidade: novaReceita.rendimento_unidade,
                     modo_preparo: novaReceita.preparo,
                     tempo_preparo_min: novaReceita.tempo_preparo_min,
                     imagem_url: novaReceita.imagem_url,
@@ -408,6 +433,7 @@ export function useDietData(date: Date = new Date()) {
         isLoading: loadingAlimentos || loadingReceitas || loadingRefeicoes || loadingPerfil || loadingPlanosCliente,
         addItem: addItemMutation.mutateAsync,
         applyPlano: applyPlanoMutation.mutateAsync,
+        swapSugestao: swapSugestaoMutation.mutateAsync,
         updateItem: updateItemMutation.mutateAsync,
         updateItemSugestao: updateItemSugestaoMutation.mutateAsync,
         deleteItem: deleteItemMutation.mutateAsync,

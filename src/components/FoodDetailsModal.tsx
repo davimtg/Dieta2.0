@@ -12,6 +12,7 @@ const foodSchema = z.object({
     nome: z.string().min(1, 'Nome é obrigatório'),
     marca: z.string().optional(),
     porcao_base_g: z.number().min(1, 'Porção deve ser maior que 0'),
+    unidade_medida: z.enum(['g', 'ml']),
     kcal: z.number().min(0, 'Não pode ser negativo'),
     carbo: z.number().min(0, 'Não pode ser negativo'),
     prot: z.number().min(0, 'Não pode ser negativo'),
@@ -52,6 +53,7 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
                 nome: alimento.nome,
                 marca: alimento.marca || '',
                 porcao_base_g: alimento.porcao_base_g,
+                unidade_medida: alimento.unidade_medida || 'g',
                 kcal: alimento.kcal,
                 carbo: alimento.carbo,
                 prot: alimento.prot,
@@ -189,7 +191,7 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
 
                             <div className="text-center">
                                 <h2 className="text-2xl font-bold text-gray-900">{alimento.nome}</h2>
-                                <p className="text-gray-500">{alimento.marca || 'Genérico'} • {alimento.porcao_base_g}g</p>
+                                <p className="text-gray-500">{alimento.marca || 'Genérico'} • {alimento.porcao_base_g}{alimento.unidade_medida || 'g'}</p>
                             </div>
 
                             <div className="relative w-48 h-48 mx-auto flex items-center justify-center">
@@ -316,8 +318,15 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
                                     <input type="text" {...register('marca')} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 focus:outline-emerald-500" />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Porção (g)</label>
-                                    <input type="number" {...register('porcao_base_g', { valueAsNumber: true })} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 focus:outline-emerald-500" />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Porção</label>
+                                    <div className="flex gap-2">
+                                        <input type="number" {...register('porcao_base_g', { valueAsNumber: true })} className="w-full bg-gray-50 border border-gray-100 rounded-xl py-3 px-4 focus:outline-emerald-500" />
+                                        <select {...register('unidade_medida')} className="bg-gray-50 border border-gray-100 rounded-xl py-3 px-2 focus:outline-emerald-500 font-semibold text-gray-700 text-sm">
+                                            <option value="g">g</option>
+                                            <option value="ml">ml</option>
+                                        </select>
+                                    </div>
+                                    {errors.porcao_base_g && <span className="text-red-500 text-[10px] block mt-1">{errors.porcao_base_g.message}</span>}
                                 </div>
                             </div>
 

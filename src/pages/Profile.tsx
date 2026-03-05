@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 
 import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
+import PlanoPreviewModal from '../components/profile/PlanoPreviewModal';
 
 export default function Profile() {
     const { session, supabase } = useAuth();
@@ -24,6 +25,7 @@ export default function Profile() {
     const [applyPlanoData, setApplyPlanoData] = useState<any>(null);
     const [startDate, setStartDate] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
     const [isApplying, setIsApplying] = useState(false);
+    const [previewPlanoData, setPreviewPlanoData] = useState<any>(null);
 
     const handleLogout = async () => {
         await supabase.auth.signOut();
@@ -152,15 +154,23 @@ export default function Profile() {
                                     <h3 className="font-bold text-gray-800 text-lg mb-1">{plano.nome}</h3>
                                     <p className="text-xs text-gray-500 font-medium mb-4">Prescrito por {plano.nutricionista?.raw_user_meta_data?.username || 'Seu Nutricionista'}</p>
 
-                                    <button
-                                        onClick={() => {
-                                            setStartDate(format(new Date(), 'yyyy-MM-dd'));
-                                            setApplyPlanoData(plano);
-                                        }}
-                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition"
-                                    >
-                                        <Calendar size={18} /> Aplicar à Minha Rotina
-                                    </button>
+                                    <div className="flex flex-col gap-2 mt-4">
+                                        <button
+                                            onClick={() => {
+                                                setStartDate(format(new Date(), 'yyyy-MM-dd'));
+                                                setApplyPlanoData(plano);
+                                            }}
+                                            className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl flex justify-center items-center gap-2 transition"
+                                        >
+                                            <Calendar size={18} /> Aplicar à Minha Rotina
+                                        </button>
+                                        <button
+                                            onClick={() => setPreviewPlanoData(plano)}
+                                            className="w-full border border-gray-200 text-gray-600 font-semibold py-2.5 rounded-xl hover:bg-gray-50 transition text-sm flex justify-center items-center gap-2"
+                                        >
+                                            👁️ Ver Detalhes do Plano
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -268,6 +278,16 @@ export default function Profile() {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Plan Preview Modal */}
+            {previewPlanoData && (
+                <PlanoPreviewModal
+                    isOpen={!!previewPlanoData}
+                    onClose={() => setPreviewPlanoData(null)}
+                    plano={previewPlanoData}
+                    nomeCliente={perfil?.username || session?.user?.email}
+                />
             )}
 
             {/* Bluetooth Beta Feature */}

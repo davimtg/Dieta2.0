@@ -62,6 +62,7 @@ export function useNutriData() {
                         quantidade_g,
                         alimento_id,
                         receita_id,
+                        substituicoes,
                         alimentos (*),
                         receitas (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*), receitas:receitas!ingrediente_receita_id (*, receita_ingredientes:receita_ingredientes!receita_id (*, alimentos (*)))))
                     )
@@ -139,12 +140,64 @@ export function useNutriData() {
         }
     });
 
+    // Atualizar Status do Plano (rascunho → enviado)
+    const updatePlanoStatusMutation = useMutation({
+        mutationFn: async ({ planoId, status }: { planoId: string, status: 'rascunho' | 'enviado' }) => {
+            const { data, error } = await supabase
+                .from('planos_alimentares')
+                .update({ status })
+                .eq('id', planoId)
+                .select();
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['planos_alimentares', userId] });
+        }
+    });
+
+    // Salvar Rascunho: Reescrita atômica de todos os itens do plano
+    const saveDraftMutation = useMutation({
+        mutationFn: async ({ planoId, itens }: { planoId: string, itens: any[] }) => {
+            // 1. Deletar todos os itens antigos do plano
+            const { error: deleteError } = await supabase
+                .from('plano_alimentar_itens')
+                .delete()
+                .eq('plano_id', planoId);
+            if (deleteError) throw deleteError;
+
+            // 2. Inserir os novos itens (se houver)
+            if (itens.length > 0) {
+                const inserts = itens.map(item => ({
+                    plano_id: planoId,
+                    dia_semana: item.dia_semana,
+                    tipo_refeicao: item.tipo_refeicao,
+                    ...(item.alimento_id ? { alimento_id: item.alimento_id } : {}),
+                    ...(item.receita_id ? { receita_id: item.receita_id } : {}),
+                    quantidade_g: item.quantidade_g,
+                    substituicoes: item.substituicoes ?? []
+                }));
+                const { error: insertError } = await supabase
+                    .from('plano_alimentar_itens')
+                    .insert(inserts);
+                if (insertError) throw insertError;
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['planos_alimentares', userId] });
+        }
+    });
+
     return {
         clientes,
         planos,
         isLoading: isLoadingClientes || isLoadingPlanos || isLoadingAll,
         createPlano: createPlanoMutation.mutateAsync,
         addPlanoItem: addPlanoItemMutation.mutateAsync,
-        deletePlanoItem: deletePlanoItemMutation.mutateAsync
+        deletePlanoItem: deletePlanoItemMutation.mutateAsync,
+        saveDraft: saveDraftMutation.mutateAsync,
+        isSavingDraft: saveDraftMutation.isPending,
+        updatePlanoStatus: updatePlanoStatusMutation.mutateAsync,
+        isUpdatingStatus: updatePlanoStatusMutation.isPending,
     };
 }

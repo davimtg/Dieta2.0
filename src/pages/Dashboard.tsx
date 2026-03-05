@@ -3,18 +3,21 @@ import { useDietData } from '../hooks/useDietData';
 import { useGlobalDate } from '../contexts/DateContext';
 import AddFoodModal from '../components/AddFoodModal';
 import EditItemModal from '../components/EditItemModal';
-import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check, ArrowLeftRight } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function Dashboard() {
     const { selectedDate, setSelectedDate } = useGlobalDate();
-    const { refeicoes, perfil, isLoading, deleteItem, updateItemSugestao } = useDietData(selectedDate);
+    const { refeicoes, perfil, isLoading, deleteItem, updateItemSugestao, swapSugestao } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemToEdit, setSelectedItemToEdit] = useState<any | null>(null);
+
+    // Swap sugestão state
+    const [swapTarget, setSwapTarget] = useState<any | null>(null);
 
     // Helpers para formatar o título da data
     const getDateTitle = () => {
@@ -53,12 +56,13 @@ export default function Dashboard() {
                 totalK += subMacros.kcal * portions;
             }
         });
-        const porcoes = receita.rendimento_porcoes || 1;
+        const rendimento = parseFloat(receita.rendimento_quantidade) || receita.rendimento_porcoes || 1;
+
         return {
-            carbo: totalC / porcoes,
-            prot: totalP / porcoes,
-            gord: totalG / porcoes,
-            kcal: totalK / porcoes
+            carbo: totalC / rendimento,
+            prot: totalP / rendimento,
+            gord: totalG / rendimento,
+            kcal: totalK / rendimento
         };
     };
 
@@ -299,6 +303,16 @@ export default function Dashboard() {
                                                                 </div>
                                                             </div>
                                                         </div>
+
+                                                        {/* Troca de Sugestão (alimento) */}
+                                                        {item.is_sugestao && item.substituicoes?.length > 0 && (
+                                                            <button
+                                                                onClick={() => setSwapTarget(item)}
+                                                                className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                                                            >
+                                                                <ArrowLeftRight size={11} /> Trocar item
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 );
                                             } else if (item.receitas) {
@@ -331,7 +345,9 @@ export default function Dashboard() {
                                                                 </div>
                                                                 <div className="flex justify-between items-center mb-2 pr-6">
                                                                     <div className="flex flex-col items-start gap-1">
-                                                                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">{item.quantidade_g} {item.quantidade_g === 1 ? 'porção' : 'porções'}</span>
+                                                                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">
+                                                                            {item.quantidade_g} {(item.receitas.tipo_rendimento === 'peso_volume' ? item.receitas.rendimento_unidade || 'g' : (item.quantidade_g === 1 ? 'porção' : 'porções'))}
+                                                                        </span>
                                                                         <span className="text-[10.5px] text-emerald-600/80 mt-0.5 whitespace-nowrap pl-0.5 overflow-hidden text-ellipsis">
                                                                             C: <span className="font-medium text-emerald-700/80">{recC}g</span> •
                                                                             P: <span className="font-medium text-emerald-700/80">{recP}g</span> •
@@ -361,8 +377,13 @@ export default function Dashboard() {
                                                                     <div className="mt-1 pl-3 border-l-2 border-emerald-100 space-y-2 py-1 pr-6">
                                                                         {item.receitas.receita_ingredientes.map((ri: any) => {
                                                                             if (!ri.alimentos) return null;
-                                                                            const ingrRatio = (ri.quantidade_g * item.quantidade_g) / ri.alimentos.porcao_base_g;
-                                                                            const scaledAmount = Math.round(ri.quantidade_g * item.quantidade_g);
+
+                                                                            const rendimento = parseFloat(item.receitas.rendimento_quantidade) || item.receitas.rendimento_porcoes || 1;
+                                                                            const proportionConsumed = item.quantidade_g / rendimento;
+
+                                                                            const scaledAmount = Math.round(ri.quantidade_g * proportionConsumed);
+                                                                            const ingrRatio = scaledAmount / ri.alimentos.porcao_base_g;
+
                                                                             const ingrKcal = Math.round(ri.alimentos.kcal * ingrRatio);
                                                                             const ingrC = Math.round(ri.alimentos.carbo * ingrRatio);
                                                                             const ingrP = Math.round(ri.alimentos.prot * ingrRatio);
@@ -382,6 +403,16 @@ export default function Dashboard() {
                                                                 )}
                                                             </div>
                                                         </div>
+
+                                                        {/* Troca de Sugestão (receita) */}
+                                                        {item.is_sugestao && item.substituicoes?.length > 0 && (
+                                                            <button
+                                                                onClick={() => setSwapTarget(item)}
+                                                                className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                                                            >
+                                                                <ArrowLeftRight size={11} /> Trocar item
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 );
                                             }
@@ -422,6 +453,47 @@ export default function Dashboard() {
                 }}
                 item={selectedItemToEdit}
             />
+
+            {/* Bottom Sheet: Trocar Sugestão */}
+            {swapTarget && (
+                <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setSwapTarget(null)}>
+                    <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                    <div
+                        className="relative bg-white rounded-t-[32px] w-full max-w-md p-6 z-10 animate-in slide-in-from-bottom duration-300"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-5" />
+                        <h3 className="font-bold text-gray-800 text-base mb-1">Trocar por:</h3>
+                        <p className="text-xs text-gray-500 mb-4">Selecione uma das opções do plano do seu nutricionista</p>
+                        <div className="space-y-2">
+                            {(swapTarget.substituicoes ?? []).map((sub: any, idx: number) => (
+                                <button
+                                    key={idx}
+                                    onClick={async () => {
+                                        await swapSugestao({
+                                            itemId: swapTarget.id,
+                                            alimentoId: sub.alimento_id,
+                                            receitaId: sub.receita_id,
+                                            quantidade: sub.quantidade_g
+                                        });
+                                        setSwapTarget(null);
+                                    }}
+                                    className="w-full flex items-center justify-between p-4 bg-gray-50 rounded-2xl hover:bg-emerald-50 transition-colors text-left"
+                                >
+                                    <div>
+                                        <p className="font-semibold text-gray-800 text-sm">{sub.nome}</p>
+                                        <p className="text-xs text-gray-400">{sub.quantidade_g}{sub.receita_id ? ' porções' : 'g'}</p>
+                                    </div>
+                                    <ArrowLeftRight size={16} className="text-emerald-500 shrink-0" />
+                                </button>
+                            ))}
+                        </div>
+                        <button onClick={() => setSwapTarget(null)} className="mt-4 w-full py-3 text-center text-sm font-semibold text-gray-500 hover:text-gray-700">
+                            Cancelar
+                        </button>
+                    </div>
+                </div>
+            )}
         </div >
     );
 }

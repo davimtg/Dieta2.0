@@ -79,12 +79,13 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                 totalK += subMacros.kcal * portions;
             }
         });
-        const porcoes = receita.rendimento_porcoes || 1;
+        const rendimento = parseFloat(receita.rendimento_quantidade) || receita.rendimento_porcoes || 1;
+
         return {
-            carbo: totalC / porcoes,
-            prot: totalP / porcoes,
-            gord: totalG / porcoes,
-            kcal: totalK / porcoes
+            carbo: totalC / rendimento,
+            prot: totalP / rendimento,
+            gord: totalG / rendimento,
+            kcal: totalK / rendimento
         };
     };
 
@@ -136,12 +137,16 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                                             <div>
                                                 <h4 className="font-semibold text-gray-800">{item.nome}</h4>
                                                 <p className="text-xs text-gray-500">
-                                                    {isReceita ? 'Receita • 1 Porção' : `${item.marca || 'Genérico'} • ${item.porcao_base_g}g`}
+                                                    {isReceita
+                                                        ? (item.tipo_rendimento === 'peso_volume' ? `Receita • 100${item.rendimento_unidade || 'g'}` : 'Receita • 1 Porção')
+                                                        : `${item.marca || 'Genérico'} • ${item.porcao_base_g}${item.unidade_medida || 'g'}`}
                                                 </p>
                                             </div>
                                             <div className="text-right flex flex-col items-end">
                                                 {isReceita && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded ml-2 mb-1">Receita</span>}
-                                                <span className="text-sm font-bold text-emerald-600">{Math.round(macros.kcal)} kcal</span>
+                                                <span className="text-sm font-bold text-emerald-600">
+                                                    {Math.round(isReceita && item.tipo_rendimento === 'peso_volume' ? macros.kcal * 100 : macros.kcal)} kcal
+                                                </span>
                                             </div>
                                         </button>
                                     );
@@ -184,14 +189,25 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
                                             <p className="text-sm text-emerald-700 mb-4">{isReceita ? 'Receita Pessoal' : selectedItem.marca || 'Genérico'}</p>
 
                                             <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                                                <div className="bg-white p-2 rounded-xl text-blue-600"><span className="block font-bold">{(macros.carbo * multiplier).toFixed(1)}g</span> Carbo</div>
-                                                <div className="bg-white p-2 rounded-xl text-emerald-600"><span className="block font-bold">{(macros.prot * multiplier).toFixed(1)}g</span> Prot</div>
-                                                <div className="bg-white p-2 rounded-xl text-amber-500"><span className="block font-bold">{(macros.gord * multiplier).toFixed(1)}g</span> Gord</div>
+                                                <div className="bg-white p-2 rounded-xl text-blue-600">
+                                                    <span className="block text-xs font-semibold mb-0.5">Carbo</span>
+                                                    <span className="block font-bold">{(macros.carbo * multiplier).toFixed(1)}g</span>
+                                                </div>
+                                                <div className="bg-white p-2 rounded-xl text-emerald-600">
+                                                    <span className="block text-xs font-semibold mb-0.5">Prot</span>
+                                                    <span className="block font-bold">{(macros.prot * multiplier).toFixed(1)}g</span>
+                                                </div>
+                                                <div className="bg-white p-2 rounded-xl text-amber-500">
+                                                    <span className="block text-xs font-semibold mb-0.5">Gord</span>
+                                                    <span className="block font-bold">{(macros.gord * multiplier).toFixed(1)}g</span>
+                                                </div>
                                             </div>
                                         </div>
 
                                         <div className="mb-6">
-                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Quantidade ({isReceita ? 'Porções' : 'Gramas'})</label>
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                                Quantidade ({isReceita ? (selectedItem.tipo_rendimento === 'peso_volume' ? (selectedItem.rendimento_unidade === 'ml' ? 'Mililitros (ml)' : 'Gramas (g)') : 'Porções') : (selectedItem.unidade_medida === 'ml' ? 'Mililitros (ml)' : 'Gramas (g)')})
+                                            </label>
                                             <input
                                                 type="number"
                                                 value={quantidade}

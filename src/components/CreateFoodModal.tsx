@@ -29,7 +29,8 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
         carbo: '',
         prot: '',
         gord: '',
-        imagem_url: ''
+        imagem_url: '',
+        unidade_medida: 'g'
     });
 
     // Sincroniza o initialSearchName com o input se modificado do pai enquanto o modal estiver aberto
@@ -59,7 +60,8 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                 prot: data.prot?.toString() || '',
                 gord: data.gord?.toString() || '',
                 porcao_base_g: data.porcao_base_g?.toString() || '100',
-                imagem_url: data.imagem_url || prev.imagem_url
+                imagem_url: data.imagem_url || prev.imagem_url,
+                unidade_medida: data.unidade_medida || prev.unidade_medida
             }));
 
             alert('Dados extraídos com sucesso!');
@@ -119,7 +121,8 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                 carbo: Number(formData.carbo),
                 prot: Number(formData.prot),
                 gord: Number(formData.gord),
-                imagem_url: formData.imagem_url
+                imagem_url: formData.imagem_url,
+                unidade_medida: formData.unidade_medida
             });
             onClose();
             if (onSuccess && data && data.length > 0) {
@@ -134,7 +137,8 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                 carbo: '',
                 prot: '',
                 gord: '',
-                imagem_url: ''
+                imagem_url: '',
+                unidade_medida: 'g'
             });
             setVitatUrl('');
         } catch (error) {
@@ -272,8 +276,14 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                                 <input type="text" name="marca" value={formData.marca} onChange={handleChange} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" placeholder="Ex: Tio João" />
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-1">Porção Base (g)</label>
-                                <input required type="number" name="porcao_base_g" value={formData.porcao_base_g} onChange={handleChange} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">Porção Base</label>
+                                <div className="flex gap-2">
+                                    <input required min="1" type="number" name="porcao_base_g" value={formData.porcao_base_g} onChange={handleChange} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" />
+                                    <select name="unidade_medida" value={formData.unidade_medida} onChange={handleChange as any} className="bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 cursor-pointer">
+                                        <option value="g">g</option>
+                                        <option value="ml">ml</option>
+                                    </select>
+                                </div>
                             </div>
                         </div>
 

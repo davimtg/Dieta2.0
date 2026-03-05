@@ -21,6 +21,9 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
     const [tempo, setTempo] = useState('');
     const [imagemUrl, setImagemUrl] = useState('');
 
+    const [tipoRendimento, setTipoRendimento] = useState<'porcoes' | 'peso_volume'>('porcoes');
+    const [rendimentoUnidade, setRendimentoUnidade] = useState<'porcao' | 'g' | 'ml'>('porcao');
+
     const [search, setSearch] = useState('');
     const [ingredientes, setIngredientes] = useState<{ alimento: any, quantidade_g: number }[]>([]);
 
@@ -32,7 +35,9 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
         if (receita) {
             setNome(receita.nome);
             setPreparo(receita.preparo || '');
-            setRendimento(receita.rendimento_porcoes?.toString() || '1');
+            setRendimento(receita.rendimento_quantidade?.toString() || receita.rendimento_porcoes?.toString() || '1');
+            setTipoRendimento(receita.tipo_rendimento || 'porcoes');
+            setRendimentoUnidade(receita.rendimento_unidade || 'porcao');
             setTempo(receita.tempo_preparo_min?.toString() || '');
             setImagemUrl(receita.imagem_url || '');
 
@@ -87,7 +92,9 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                     modo_preparo: preparo,
                     tempo_preparo_min: tempo ? Number(tempo) : null,
                     imagem_url: imagemUrl,
-                    rendimento_porcoes: Number(rendimento),
+                    tipo_rendimento: tipoRendimento,
+                    rendimento_quantidade: Number(rendimento),
+                    rendimento_unidade: tipoRendimento === 'porcoes' ? 'porcao' : rendimentoUnidade,
                 },
                 ingredientes: ingredientes.map(ing => ({
                     alimento_id: ing.alimento.id,
@@ -131,10 +138,12 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
         }
     });
 
-    const portionKcal = Math.round(totalKcal / numRendimento);
-    const portionCarbo = Math.round(totalCarbo / numRendimento);
-    const portionProt = Math.round(totalProt / numRendimento);
-    const portionGord = Math.round(totalGord / numRendimento);
+    const ratioCalc = tipoRendimento === 'peso_volume' ? (100 / numRendimento) : (1 / numRendimento);
+
+    const portionKcal = Math.round(totalKcal * ratioCalc);
+    const portionCarbo = Math.round(totalCarbo * ratioCalc);
+    const portionProt = Math.round(totalProt * ratioCalc);
+    const portionGord = Math.round(totalGord * ratioCalc);
 
     return (
         <Dialog.Root open={isOpen} onOpenChange={(open) => !open && handleClose()}>
@@ -184,7 +193,9 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                                     <div className="flex gap-4 text-sm font-medium text-gray-500 bg-gray-50 p-3 rounded-2xl w-fit">
                                         <span className="flex items-center gap-1.5"><Clock size={16} /> {tempo || '--'} min</span>
                                         <span className="text-gray-300">|</span>
-                                        <span>{rendimento} {Number(rendimento) === 1 ? 'porção' : 'porções'}</span>
+                                        <span>
+                                            {rendimento} {tipoRendimento === 'peso_volume' ? rendimentoUnidade : (Number(rendimento) === 1 ? 'porção' : 'porções')}
+                                        </span>
                                     </div>
                                 </div>
 
@@ -192,7 +203,7 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                                 <div className="bg-emerald-50 rounded-2xl p-5 border border-emerald-100 flex items-center justify-between">
                                     <div>
                                         <span className="text-3xl font-bold text-emerald-700">{portionKcal}</span>
-                                        <span className="text-sm font-bold text-emerald-600 ml-1 uppercase">Kcal / porção</span>
+                                        <span className="text-sm font-bold text-emerald-600 ml-1 uppercase">Kcal / {tipoRendimento === 'peso_volume' ? `100${rendimentoUnidade}` : 'porção'}</span>
                                     </div>
                                     <div className="flex gap-4 text-xs font-bold">
                                         <span className="text-blue-600 flex flex-col items-center"><span>C</span> <span className="text-base">{portionCarbo}g</span></span>
@@ -209,7 +220,7 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                                             <li key={idx} className="relative flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm ml-6">
                                                 <div className="absolute left-0 -ml-6 w-4 h-4 rounded-full border-2 border-emerald-500 bg-white"></div>
                                                 <span className="font-semibold text-gray-700">{ing.alimento.nome}</span>
-                                                <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-sm">{ing.quantidade_g}g</span>
+                                                <span className="font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg text-sm">{ing.quantidade_g}{ing.alimento.unidade_medida || 'g'}</span>
                                             </li>
                                         ))}
                                     </ul>
@@ -239,14 +250,49 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                                         <input type="url" value={imagemUrl} onChange={e => setImagemUrl(e.target.value)} placeholder="https://..." className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-emerald-500" />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl space-y-3">
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Rendimento</label>
-                                            <input required type="number" min="1" value={rendimento} onChange={e => setRendimento(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-emerald-500" />
+                                            <label className="block text-sm font-semibold text-gray-700 mb-2">Como esta receita rende?</label>
+                                            <div className="flex bg-white rounded-xl p-1 border border-gray-200">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setTipoRendimento('porcoes'); setRendimentoUnidade('porcao'); }}
+                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${tipoRendimento === 'porcoes' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                                >
+                                                    Em Porções
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => { setTipoRendimento('peso_volume'); setRendimentoUnidade('g'); }}
+                                                    className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${tipoRendimento === 'peso_volume' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                                >
+                                                    Por Peso / Volume
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-semibold text-gray-700 mb-1">Tempo (min)</label>
-                                            <input type="number" min="1" value={tempo} onChange={e => setTempo(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 focus:outline-emerald-500" />
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                                    {tipoRendimento === 'porcoes' ? 'Quantas porções rende?' : 'Qual o peso final?'}
+                                                </label>
+                                                <div className="flex gap-2">
+                                                    <input required type="number" min="1" value={rendimento} onChange={e => setRendimento(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl py-2 px-3 text-gray-700 focus:outline-none focus:border-emerald-500" placeholder="Ex: 4" />
+                                                    {tipoRendimento === 'peso_volume' && (
+                                                        <select value={rendimentoUnidade} onChange={e => setRendimentoUnidade(e.target.value as any)} className="bg-white border border-gray-200 rounded-xl py-2 px-2 text-gray-700 focus:outline-none focus:border-emerald-500 text-sm">
+                                                            <option value="g">g</option>
+                                                            <option value="ml">ml</option>
+                                                        </select>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Tempo (min)</label>
+                                                <div className="relative">
+                                                    <input type="number" min="1" value={tempo} onChange={e => setTempo(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl py-2 px-3 pr-8 text-gray-700 focus:outline-none focus:border-emerald-500" placeholder="Ex: 30" />
+                                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">min</span>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

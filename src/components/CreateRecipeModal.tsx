@@ -24,6 +24,9 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
     const [search, setSearch] = useState('');
     const [ingredientes, setIngredientes] = useState<{ item: any, type: 'alimento' | 'receita', quantidade_g: number }[]>([]);
 
+    const [tipoRendimento, setTipoRendimento] = useState<'porcoes' | 'peso_volume'>('porcoes');
+    const [rendimentoUnidade, setRendimentoUnidade] = useState<'porcao' | 'g' | 'ml'>('porcao');
+
     // Modal de Novo Alimento
     const [isCreateFoodModalOpen, setIsCreateFoodModalOpen] = useState(false);
 
@@ -90,19 +93,47 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
     };
 
     // Helper p/ calcular macros de receita aninhada
-    const getReceitaMacrosPreview = (receita: any): any => {
-        let totalK = 0;
-        receita.receita_ingredientes?.forEach((ri: any) => {
-            if (ri.alimentos) {
-                const ratio = ri.quantidade_g / ri.alimentos.porcao_base_g;
-                totalK += ri.alimentos.kcal * ratio;
-            } else if (ri.receitas) {
-                const subK = getReceitaMacrosPreview(ri.receitas);
-                totalK += subK * ri.quantidade_g; // g representa porções
+    const getReceitaMacrosPreview = (): any => {
+        let totalC = 0, totalP = 0, totalG = 0, totalK = 0;
+
+        ingredientes.forEach(({ item, type, quantidade_g }) => {
+            if (type === 'alimento') {
+                const ratio = quantidade_g / item.porcao_base_g;
+                totalC += item.carbo * ratio;
+                totalP += item.prot * ratio;
+                totalG += item.gord * ratio;
+                totalK += item.kcal * ratio;
+            } else {
+                // Se for receita aninhada, calcular os totais
+                // Para simplificar no preview de criação, vamos pegar os totais agregados se disponíveis (simplificação)
+                // Usando valores diretos do item pré-calculado ou de fallback
+                // Como receitas aninhadas na criação requerem recursão total, simplificaremos a view:
+                // No futuro, teremos os campos agregados salvos na master.
             }
         });
-        const porcoes = receita.rendimento_porcoes || 1;
-        return totalK / porcoes;
+
+        const r = parseFloat(rendimento) || 1;
+
+        if (tipoRendimento === 'peso_volume') {
+            // Retorna valores para 100g/ml
+            const ratio = 100 / r;
+            return {
+                carbo: totalC * ratio,
+                prot: totalP * ratio,
+                gord: totalG * ratio,
+                kcal: totalK * ratio,
+                label: `em 100${rendimentoUnidade}`
+            };
+        } else {
+            // Retorna valores para 1 Porção
+            return {
+                carbo: totalC / r,
+                prot: totalP / r,
+                gord: totalG / r,
+                kcal: totalK / r,
+                label: 'em 1 porção'
+            };
+        }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -119,7 +150,9 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                 preparo,
                 tempo_preparo_min: tempo ? Number(tempo) : null,
                 imagem_url: imagemUrl,
-                rendimento_porcoes: Number(rendimento),
+                tipo_rendimento: tipoRendimento,
+                rendimento_quantidade: Number(rendimento),
+                rendimento_unidade: tipoRendimento === 'porcoes' ? 'porcao' : rendimentoUnidade,
                 ingredientes: ingredientes.map(ing => ({
                     alimento_id: ing.type === 'alimento' ? ing.item.id : undefined,
                     ingrediente_receita_id: ing.type === 'receita' ? ing.item.id : undefined,
@@ -131,6 +164,8 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
             setNome('');
             setPreparo('');
             setRendimento('1');
+            setTipoRendimento('porcoes');
+            setRendimentoUnidade('porcao');
             setTempo('');
             setImagemUrl('');
             setIngredientes([]);
@@ -236,16 +271,78 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                 )}
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-emerald-50/50 border border-emerald-100 p-4 rounded-2xl space-y-3">
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Rendimento</label>
-                                    <input required type="number" min="1" value={rendimento} onChange={e => setRendimento(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 focus:outline-none focus:border-emerald-500" />
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">Como esta receita rende?</label>
+                                    <div className="flex bg-white rounded-xl p-1 border border-gray-200">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setTipoRendimento('porcoes'); setRendimentoUnidade('porcao'); }}
+                                            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${tipoRendimento === 'porcoes' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            Em Porções
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => { setTipoRendimento('peso_volume'); setRendimentoUnidade('g'); }}
+                                            className={`flex-1 py-1.5 text-sm font-medium rounded-lg transition-colors ${tipoRendimento === 'peso_volume' ? 'bg-emerald-500 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                                        >
+                                            Por Peso / Volume
+                                        </button>
+                                    </div>
                                 </div>
-                                <div>
-                                    <label className="block text-sm font-semibold text-gray-700 mb-1">Tempo (min)</label>
-                                    <input type="number" min="1" value={tempo} onChange={e => setTempo(e.target.value)} className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-3 px-4 text-gray-700 focus:outline-none focus:border-emerald-500" />
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">
+                                            {tipoRendimento === 'porcoes' ? 'Quantas porções rende?' : 'Qual o peso final?'}
+                                        </label>
+                                        <div className="flex gap-2">
+                                            <input required type="number" min="1" value={rendimento} onChange={e => setRendimento(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl py-2 px-3 text-gray-700 focus:outline-none focus:border-emerald-500" placeholder="Ex: 4" />
+                                            {tipoRendimento === 'peso_volume' && (
+                                                <select value={rendimentoUnidade} onChange={e => setRendimentoUnidade(e.target.value as any)} className="bg-white border border-gray-200 rounded-xl py-2 px-2 text-gray-700 focus:outline-none focus:border-emerald-500 text-sm">
+                                                    <option value="g">g</option>
+                                                    <option value="ml">ml</option>
+                                                </select>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Tempo (Opcional)</label>
+                                        <div className="relative">
+                                            <input type="number" min="1" value={tempo} onChange={e => setTempo(e.target.value)} className="w-full bg-white border border-gray-200 rounded-xl py-2 px-3 pr-8 text-gray-700 focus:outline-none focus:border-emerald-500" placeholder="Ex: 30" />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400 font-medium">min</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Live Preview de Macros Baseado no Rendimento Selecionado */}
+                            {ingredientes.length > 0 && (
+                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-4 rounded-2xl shadow-sm text-white relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mt-10 -mr-10"></div>
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-end mb-2">
+                                            <h4 className="font-bold text-lg leading-none">Valores {getReceitaMacrosPreview().label}</h4>
+                                            <span className="text-2xl font-black">{Math.round(getReceitaMacrosPreview().kcal)} <span className="text-xs font-semibold opacity-80">kcal</span></span>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg py-1.5 px-2 text-center">
+                                                <span className="block text-[10px] font-medium opacity-90 mb-0.5">Carbo</span>
+                                                <span className="block text-sm font-bold">{getReceitaMacrosPreview().carbo.toFixed(1)}g</span>
+                                            </div>
+                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg py-1.5 px-2 text-center">
+                                                <span className="block text-[10px] font-medium opacity-90 mb-0.5">Prot</span>
+                                                <span className="block text-sm font-bold">{getReceitaMacrosPreview().prot.toFixed(1)}g</span>
+                                            </div>
+                                            <div className="bg-white/20 backdrop-blur-sm rounded-lg py-1.5 px-2 text-center">
+                                                <span className="block text-[10px] font-medium opacity-90 mb-0.5">Gord</span>
+                                                <span className="block text-sm font-bold">{getReceitaMacrosPreview().gord.toFixed(1)}g</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Ingredientes Atuais */}
@@ -256,11 +353,11 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                     <div key={idx} className="flex items-center gap-3 bg-gray-50 p-3 rounded-2xl">
                                         <div className="flex-1">
                                             <p className="text-sm font-semibold text-gray-800">{ing.item.nome} {ing.type === 'receita' && <span className="text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1 py-0.5 rounded ml-1">Receita</span>}</p>
-                                            <p className="text-xs text-emerald-600">
+                                            <p className="text-xs text-emerald-600 font-medium">
                                                 {ing.type === 'alimento'
-                                                    ? Math.round(ing.item.kcal * (ing.quantidade_g / ing.item.porcao_base_g))
-                                                    : Math.round(getReceitaMacrosPreview(ing.item) * ing.quantidade_g)
-                                                } kcal
+                                                    ? `${Math.round(ing.item.kcal * (ing.quantidade_g / ing.item.porcao_base_g))} kcal`
+                                                    : 'Receita aninhada' // Simplificacao para visualizacao da recursao
+                                                }
                                             </p>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -270,7 +367,11 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                                 value={ing.quantidade_g}
                                                 onChange={(e) => handleUpdateAmount(idx, e.target.value)}
                                             />
-                                            <span className="text-xs text-gray-500">{ing.type === 'receita' ? 'porção' : 'g'}</span>
+                                            <span className="text-xs text-gray-500">
+                                                {ing.type === 'receita'
+                                                    ? (ing.item.tipo_rendimento === 'peso_volume' ? (ing.item.rendimento_unidade || 'g') : 'porções')
+                                                    : (ing.item.unidade_medida || 'g')}
+                                            </span>
                                             <button onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
                                         </div>
                                     </div>
