@@ -30,7 +30,7 @@ export default function ShoppingList() {
 
             const { data, error } = await supabase
                 .from('refeicoes_diarias')
-                .select('*, itens_consumidos(*, alimentos(*), receitas(receita_ingredientes(*, alimentos(*))))')
+                .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*))))')
                 .eq('user_id', userId)
                 .gte('data', startDateStr)
                 .lte('data', endDateStr);
@@ -47,6 +47,9 @@ export default function ShoppingList() {
 
         weekMeals.forEach((meal: any) => {
             meal.itens_consumidos?.forEach((item: any) => {
+                // Rule: ONLY include items from future planning (is_sugestao === true)
+                if (!item.is_sugestao) return;
+
                 if (item.alimentos) {
                     const id = item.alimentos.id;
                     if (!itemsMap[id]) {
@@ -55,16 +58,18 @@ export default function ShoppingList() {
                     itemsMap[id].quantidade += Number(item.quantidade_g);
                 }
                 if (item.receitas) {
-                    // Se for receita, somamos os ingredientes daquela receita
+                    const rendimento = parseFloat(item.receitas.rendimento_quantidade) || item.receitas.rendimento_porcoes || 1;
+                    const proportionConsumed = Number(item.quantidade_g) / rendimento;
+
+                    // Se for receita, somamos os ingredientes proporcionais à quantidade planejada
                     item.receitas.receita_ingredientes?.forEach((ri: any) => {
                         if (ri.alimentos) {
                             const id = ri.alimentos.id;
                             if (!itemsMap[id]) {
                                 itemsMap[id] = { nome: ri.alimentos.nome, quantidade: 0, checked: false };
                             }
-                            // Multiplicando a proporção pelo que a pessoa consumiu (se consumiu 1 porção da receita etc)
-                            // Simplificação: soma exatamente as gramas da receita toda (uma porção dela)
-                            itemsMap[id].quantidade += Number(ri.quantidade_g);
+                            const scaledAmount = ri.quantidade_g * proportionConsumed;
+                            itemsMap[id].quantidade += scaledAmount;
                         }
                     });
                 }
