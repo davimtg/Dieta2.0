@@ -124,7 +124,16 @@ export default function Dashboard() {
         jantar: 'Jantar'
     };
 
-    const sortedMeals = [...refeicoes].sort((a, b) => mealOrder.indexOf(a.tipo_refeicao) - mealOrder.indexOf(b.tipo_refeicao));
+    const sortedMeals = [...refeicoes].sort((a, b) => {
+        const indexA = mealOrder.indexOf(a.tipo_refeicao);
+        const indexB = mealOrder.indexOf(b.tipo_refeicao);
+
+        if (indexA === -1 && indexB === -1) return a.tipo_refeicao.localeCompare(b.tipo_refeicao);
+        if (indexA === -1) return 1;
+        if (indexB === -1) return -1;
+
+        return indexA - indexB;
+    });
 
     return (
         <div className="bg-emerald-500 pt-8 pb-32 min-h-screen text-white rounded-b-[40px]">
@@ -283,7 +292,7 @@ export default function Dashboard() {
                         return (
                             <div key={meal.id} className="bg-white p-5 rounded-3xl shadow-sm border border-emerald-50/50 flex flex-col gap-4">
                                 <div className="flex justify-between items-center">
-                                    <h3 className="font-bold text-gray-800">{mealNames[meal.tipo_refeicao]}</h3>
+                                    <h3 className="font-bold text-gray-800">{meal.nome_refeicao || mealNames[meal.tipo_refeicao] || 'Refeição Extra'}</h3>
                                     <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{Math.round(mealKcal)} kcal</span>
                                 </div>
 

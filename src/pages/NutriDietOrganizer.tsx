@@ -6,7 +6,9 @@ import AddPlanoItemModal from '../components/AddPlanoItemModal';
 import AddSubstitutionModal from '../components/AddSubstitutionModal';
 
 const diasSemana = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const mealTypes = [
+import { Edit2 } from 'lucide-react';
+
+const DEFAULT_MEALS = [
     { id: 'cafe', title: 'Café da Manhã', icon: '☕' },
     { id: 'almoco', title: 'Almoço', icon: '🍛' },
     { id: 'lanche', title: 'Lanche', icon: '🥪' },
@@ -20,6 +22,7 @@ interface LocalItem {
     receita_id?: string;
     dia_semana: number;
     tipo_refeicao: string;
+    nome_refeicao?: string;
     quantidade_g: number;
     alimentos?: any;
     receitas?: any;
@@ -81,6 +84,10 @@ export default function NutriDietOrganizer() {
     const [isSubsModalOpen, setIsSubsModalOpen] = useState(false);
     const [selectedItemIndex, setSelectedItemIndex] = useState<string | null>(null);
 
+    const [localMeals, setLocalMeals] = useState<any[]>(DEFAULT_MEALS);
+    const [editingMealId, setEditingMealId] = useState<string | null>(null);
+    const [editMealName, setEditMealName] = useState('');
+
     // Inicializar o estado local com os dados do plano ao montar
     const plano = planos.find((p: any) => p.id === id);
     const pacientePerfil = clientes.find((c: any) => c.cliente_id === plano?.cliente_id)?.usuarios_perfil as any;
@@ -93,12 +100,27 @@ export default function NutriDietOrganizer() {
                 receita_id: item.receita_id,
                 dia_semana: item.dia_semana,
                 tipo_refeicao: item.tipo_refeicao,
+                nome_refeicao: item.nome_refeicao,
                 quantidade_g: item.quantidade_g,
                 alimentos: item.alimentos,
                 receitas: item.receitas,
                 substituicoes: item.substituicoes ?? []
             }));
             setLocalItems(initial);
+
+            const customMealsMap = new Map();
+            plano.plano_alimentar_itens.forEach((item: any) => {
+                if (!DEFAULT_MEALS.find(m => m.id === item.tipo_refeicao)) {
+                    if (!customMealsMap.has(item.tipo_refeicao)) {
+                        customMealsMap.set(item.tipo_refeicao, {
+                            id: item.tipo_refeicao,
+                            title: item.nome_refeicao || 'Nova Refeição',
+                            icon: '🍽️'
+                        });
+                    }
+                }
+            });
+            setLocalMeals([...DEFAULT_MEALS, ...Array.from(customMealsMap.values())]);
             setIsDirty(false);
         }
     }, [plano?.id]);
@@ -125,7 +147,9 @@ export default function NutriDietOrganizer() {
 
     // Ações locais
     const addLocalItem = (item: Omit<LocalItem, '_localId'>) => {
-        setLocalItems(prev => [...prev, { ...item, _localId: makeLocalId() }]);
+        const mealObj = localMeals.find(m => m.id === item.tipo_refeicao);
+        const mealName = mealObj ? mealObj.title : 'Refeição';
+        setLocalItems(prev => [...prev, { ...item, nome_refeicao: mealName, _localId: makeLocalId() }]);
         setIsDirty(true);
     };
 
@@ -150,6 +174,18 @@ export default function NutriDietOrganizer() {
             subs.splice(subIdx, 1);
             return { ...item, substituicoes: subs };
         }));
+        setIsDirty(true);
+    };
+
+    const handleAddMeal = () => {
+        const newMealId = `custom_${Date.now()}`;
+        setLocalMeals([...localMeals, { id: newMealId, title: 'Nova Refeição', icon: '🍽️' }]);
+    };
+
+    const handleRenameMeal = (mealId: string, newName: string) => {
+        if (!newName.trim()) return;
+        setLocalMeals(prev => prev.map(m => m.id === mealId ? { ...m, title: newName.trim() } : m));
+        setLocalItems(prev => prev.map(item => item.tipo_refeicao === mealId ? { ...item, nome_refeicao: newName.trim() } : item));
         setIsDirty(true);
     };
 
@@ -376,23 +412,78 @@ export default function NutriDietOrganizer() {
                 </div>
 
                 {/* Refeições */}
-                {mealTypes.map(meal => {
+                {localMeals.map(meal => {
                     const itensMeal = itensHoje.filter(item => item.tipo_refeicao === meal.id);
+
+                    // Calculando subtotais da refeição (ignorando substituições)
+                    let mealMacros = { carbo: 0, prot: 0, gord: 0, kcal: 0 };
+                    itensMeal.forEach(item => {
+                        if (item.alimentos) {
+                            const ratio = item.quantidade_g / item.alimentos.porcao_base_g;
+                            mealMacros.carbo += item.alimentos.carbo * ratio;
+                            mealMacros.prot += item.alimentos.prot * ratio;
+                            mealMacros.gord += item.alimentos.gord * ratio;
+                            mealMacros.kcal += item.alimentos.kcal * ratio;
+                        } else if (item.receitas) {
+                            const rMacros = getReceitaMacros(item.receitas);
+                            const multiplier = getRecipeMultiplier(item.receitas, item.quantidade_g);
+                            mealMacros.carbo += rMacros.carbo * multiplier;
+                            mealMacros.prot += rMacros.prot * multiplier;
+                            mealMacros.gord += rMacros.gord * multiplier;
+                            mealMacros.kcal += rMacros.kcal * multiplier;
+                        }
+                    });
 
                     return (
                         <div key={meal.id} className="bg-white rounded-2xl border border-gray-100 mb-3 overflow-hidden">
-                            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50">
+                            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 flex-wrap gap-2">
                                 <div className="flex items-center gap-2">
                                     <span>{meal.icon}</span>
-                                    <span className="font-bold text-gray-700 text-sm">{meal.title}</span>
-                                    <span className="text-xs text-gray-400">({itensMeal.length} {itensMeal.length === 1 ? 'item' : 'itens'})</span>
+                                    {editingMealId === meal.id ? (
+                                        <input
+                                            autoFocus
+                                            value={editMealName}
+                                            onChange={e => setEditMealName(e.target.value)}
+                                            onBlur={() => { handleRenameMeal(meal.id, editMealName); setEditingMealId(null); }}
+                                            onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+                                            className="bg-transparent border-b border-emerald-300 focus:outline-none focus:border-emerald-500 px-1 font-bold text-gray-700 text-sm max-w-[140px]"
+                                        />
+                                    ) : (
+                                        <div className="flex items-center gap-1 group">
+                                            <span className="font-bold text-gray-700 text-sm">{meal.title}</span>
+                                            <button
+                                                onClick={() => { setEditingMealId(meal.id); setEditMealName(meal.title); }}
+                                                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-emerald-600 transition"
+                                                aria-label="Renomear refeição"
+                                                title="Renomear refeição"
+                                            >
+                                                <Edit2 size={13} />
+                                            </button>
+                                        </div>
+                                    )}
+                                    <span className="text-xs text-gray-400 hidden sm:inline">({itensMeal.length} {itensMeal.length === 1 ? 'item' : 'itens'})</span>
+
+                                    {mealMacros.kcal > 0 && (
+                                        <div className="ml-2 text-[11px] text-gray-500 font-medium hidden sm:flex items-center gap-1.5">
+                                            <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/50">{Math.round(mealMacros.kcal)} kcal</span>
+                                            <span>|</span>
+                                            <span>C: {Math.round(mealMacros.carbo)}g • P: {Math.round(mealMacros.prot)}g • G: {Math.round(mealMacros.gord)}g</span>
+                                        </div>
+                                    )}
                                 </div>
-                                <button
-                                    onClick={() => { setSelectedMealType(meal.id); setIsAddModalOpen(true); }}
-                                    className="flex items-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg"
-                                >
-                                    <Plus size={13} /> Adicionar
-                                </button>
+                                <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
+                                    {mealMacros.kcal > 0 && (
+                                        <div className="text-[11px] text-gray-500 font-medium sm:hidden flex items-center gap-1.5 shrink-0">
+                                            <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{Math.round(mealMacros.kcal)} kcal</span>
+                                        </div>
+                                    )}
+                                    <button
+                                        onClick={() => { setSelectedMealType(meal.id); setIsAddModalOpen(true); }}
+                                        className="flex items-center justify-center sm:justify-start gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded-lg w-full sm:w-auto shrink-0 transition"
+                                    >
+                                        <Plus size={13} /> Adicionar
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="p-3 space-y-2">
@@ -513,6 +604,15 @@ export default function NutriDietOrganizer() {
                         </div>
                     );
                 })}
+
+                <div className="flex justify-center mt-6">
+                    <button
+                        onClick={handleAddMeal}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 font-semibold hover:border-emerald-400 hover:text-emerald-600 hover:bg-emerald-50 transition"
+                    >
+                        <Plus size={18} /> Adicionar Nova Refeição
+                    </button>
+                </div>
             </div>
 
             {/* Floating action: Salvar Rascunho */}

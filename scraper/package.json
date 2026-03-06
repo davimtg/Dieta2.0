@@ -1,0 +1,14 @@
+{
+    "name": "nutrition-scraper",
+    "version": "1.0.0",
+    "description": "Scraper standalone para Vitat e FatSecret",
+    "main": "scraper.mjs",
+    "type": "module",
+    "scripts": {
+        "start": "node scraper.mjs"
+    },
+    "dependencies": {
+        "axios": "^1.6.0",
+        "cheerio": "^1.0.0-rc.12"
+    }
+}

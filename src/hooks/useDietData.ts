@@ -73,7 +73,8 @@ export function useDietData(date: Date = new Date()) {
                         missingMeals.map(tipo => ({
                             user_id: userId,
                             data: formattedDate,
-                            tipo_refeicao: tipo
+                            tipo_refeicao: tipo,
+                            nome_refeicao: null
                         }))
                     )
                     .select('*, itens_consumidos(*, alimentos(*), receitas(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*), receitas:receitas!ingrediente_receita_id(*, receita_ingredientes:receita_ingredientes!receita_id(*, alimentos(*))))))');
@@ -118,6 +119,7 @@ export function useDietData(date: Date = new Date()) {
                         id,
                         dia_semana,
                         tipo_refeicao,
+                        nome_refeicao,
                         quantidade_g,
                         alimento_id,
                         receita_id,
@@ -186,10 +188,9 @@ export function useDietData(date: Date = new Date()) {
                 const itensDoDia = plano.plano_alimentar_itens.filter((item: any) => item.dia_semana === dia_semana);
 
                 if (itensDoDia.length > 0) {
-                    // Buscar ou criar refeiçoes pra esse dia
                     let { data: refeicoesDia } = await supabase
                         .from('refeicoes_diarias')
-                        .select('id, tipo_refeicao')
+                        .select('id, tipo_refeicao, nome_refeicao')
                         .eq('user_id', userId)
                         .eq('data', dateStr);
 
@@ -198,9 +199,38 @@ export function useDietData(date: Date = new Date()) {
                         const { data: newMeals, error: insertErr } = await supabase
                             .from('refeicoes_diarias')
                             .insert(defaultMeals.map(tipo => ({ user_id: userId, data: dateStr, tipo_refeicao: tipo })))
-                            .select('id, tipo_refeicao');
+                            .select('id, tipo_refeicao, nome_refeicao');
                         if (insertErr) throw insertErr;
                         refeicoesDia = newMeals || [];
+                    }
+
+                    // Identificar todas as refeições únicas do plano para esse dia
+                    const refeicoesPlanoMap = new Map();
+                    for (const item of itensDoDia) {
+                        if (!refeicoesPlanoMap.has(item.tipo_refeicao)) {
+                            refeicoesPlanoMap.set(item.tipo_refeicao, item.nome_refeicao);
+                        }
+                    }
+
+                    // Garantir que todas as refeições do plano existam no banco para esse dia
+                    for (const [tipo_refeicao, nome_refeicao] of refeicoesPlanoMap.entries()) {
+                        let ref = refeicoesDia.find((r: any) => r.tipo_refeicao === tipo_refeicao);
+                        if (!ref) {
+                            const { data: newMeal, error: insertErr } = await supabase
+                                .from('refeicoes_diarias')
+                                .insert({ user_id: userId, data: dateStr, tipo_refeicao: tipo_refeicao, nome_refeicao: nome_refeicao || null })
+                                .select('id, tipo_refeicao, nome_refeicao')
+                                .single();
+                            if (insertErr) throw insertErr;
+                            refeicoesDia.push(newMeal);
+                        } else if (nome_refeicao && ref.nome_refeicao !== nome_refeicao) {
+                            // Update nome_refeicao se for diferente
+                            await supabase
+                                .from('refeicoes_diarias')
+                                .update({ nome_refeicao })
+                                .eq('id', ref.id);
+                            ref.nome_refeicao = nome_refeicao;
+                        }
                     }
 
                     // Preparar inserts para esse dia e essas refeiçoes

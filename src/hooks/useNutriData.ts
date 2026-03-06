@@ -59,6 +59,7 @@ export function useNutriData() {
                         id,
                         dia_semana,
                         tipo_refeicao,
+                        nome_refeicao,
                         quantidade_g,
                         alimento_id,
                         receita_id,
@@ -103,6 +104,7 @@ export function useNutriData() {
             plano_id: string,
             dia_semana: number,
             tipo_refeicao: string,
+            nome_refeicao?: string,
             alimento_id?: string | null,
             receita_id?: string | null,
             quantidade_g: number
@@ -113,6 +115,7 @@ export function useNutriData() {
                     plano_id: item.plano_id,
                     dia_semana: item.dia_semana,
                     tipo_refeicao: item.tipo_refeicao,
+                    ...(item.nome_refeicao ? { nome_refeicao: item.nome_refeicao } : {}),
                     ...(item.alimento_id ? { alimento_id: item.alimento_id } : {}),
                     ...(item.receita_id ? { receita_id: item.receita_id } : {}),
                     quantidade_g: item.quantidade_g
@@ -215,6 +218,7 @@ export function useNutriData() {
                     plano_id: planoId,
                     dia_semana: item.dia_semana,
                     tipo_refeicao: item.tipo_refeicao,
+                    ...(item.nome_refeicao ? { nome_refeicao: item.nome_refeicao } : {}),
                     ...(item.alimento_id ? { alimento_id: item.alimento_id } : {}),
                     ...(item.receita_id ? { receita_id: item.receita_id } : {}),
                     quantidade_g: item.quantidade_g,
