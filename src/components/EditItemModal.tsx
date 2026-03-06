@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import { useGlobalDate } from '../contexts/DateContext';
+import toast from 'react-hot-toast';
 
 interface EditItemModalProps {
     isOpen: boolean;
@@ -32,7 +33,7 @@ export default function EditItemModal({ isOpen, onClose, item }: EditItemModalPr
         e.preventDefault();
         const numQtd = Number(quantidade.replace(',', '.'));
         if (!numQtd || numQtd <= 0) {
-            alert("A quantidade deve ser maior que zero.");
+            toast.error("A quantidade deve ser maior que zero.");
             return;
         }
 
@@ -40,9 +41,10 @@ export default function EditItemModal({ isOpen, onClose, item }: EditItemModalPr
         try {
             await updateItem({ itemId: item.id, quantidade: numQtd });
             onClose();
+            toast.success("Quantidade atualizada com sucesso!");
         } catch (error) {
             console.error(error);
-            alert("Erro ao atualizar quantidade do item.");
+            toast.error("Erro ao atualizar quantidade do item.");
         } finally {
             setIsSubmitting(false);
         }

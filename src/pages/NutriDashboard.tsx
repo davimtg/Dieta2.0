@@ -64,10 +64,12 @@ export default function NutriDashboard() {
                             <h2 className="text-lg font-bold text-gray-800">Seus Pacientes ({clientes.length})</h2>
                         </div>
                         {clientes.length === 0 ? (
-                            <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100">
-                                <Users size={40} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-gray-500 text-sm">Nenhum paciente vinculado ainda.</p>
-                                <p className="text-xs text-gray-400 mt-1">Peça para eles informarem seu email no painel.</p>
+                            <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100 flex flex-col items-center">
+                                <div className="bg-emerald-50 p-4 rounded-full mb-4 text-emerald-500">
+                                    <Users size={40} />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2">👥 Nenhum paciente vinculado ainda</h3>
+                                <p className="text-sm text-gray-500 mb-6">Compartilhe seu e-mail cadastrado com seus pacientes para que eles possam vincular seus perfis ao seu e você possa prescrever dietas.</p>
                             </div>
                         ) : (
                             clientes.map((vinc: any) => (
@@ -102,6 +104,7 @@ export default function NutriDashboard() {
                         <div className="flex items-center justify-between mb-2">
                             <h2 className="text-lg font-bold text-gray-800">Dietas Prescritas</h2>
                             <button
+                                aria-label="Criar nova dieta"
                                 onClick={() => setIsCreatingPlano(true)}
                                 className="bg-emerald-500 text-white p-2 rounded-full shadow-sm hover:bg-emerald-600 transition"
                             >
@@ -109,9 +112,18 @@ export default function NutriDashboard() {
                             </button>
                         </div>
                         {planos.length === 0 ? (
-                            <div className="bg-white p-6 rounded-2xl text-center shadow-sm border border-gray-100">
-                                <FileText size={40} className="mx-auto text-gray-300 mb-3" />
-                                <p className="text-gray-500 text-sm">Nenhuma dieta criada.</p>
+                            <div className="bg-white p-8 rounded-3xl text-center shadow-sm border border-gray-100 flex flex-col items-center">
+                                <div className="bg-emerald-50 p-4 rounded-full mb-4 text-emerald-500">
+                                    <FileText size={40} />
+                                </div>
+                                <h3 className="text-lg font-bold text-gray-800 mb-2">📝 Nenhuma dieta criada</h3>
+                                <p className="text-sm text-gray-500 mb-6">Prescreva planos alimentares personalizados e ajude seus pacientes a atingirem suas metas.</p>
+                                <button
+                                    onClick={() => setIsCreatingPlano(true)}
+                                    className="text-emerald-500 font-bold bg-emerald-50 px-6 py-3 rounded-xl hover:bg-emerald-100 transition"
+                                >
+                                    Criar Primeira Dieta
+                                </button>
                             </div>
                         ) : (
                             planos.map((plano: any) => (

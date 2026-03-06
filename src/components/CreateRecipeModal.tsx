@@ -4,6 +4,7 @@ import { X, Search, Plus, Trash2, Camera } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import { supabase } from '../lib/supabase';
 import CreateFoodModal from './CreateFoodModal';
+import toast from 'react-hot-toast';
 
 interface CreateRecipeModalProps {
     isOpen: boolean;
@@ -35,7 +36,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
         if (!file) return;
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('A imagem deve ter no máximo 5MB.');
+            toast.error('A imagem deve ter no máximo 5MB.');
             return;
         }
 
@@ -58,7 +59,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
             setImagemUrl(publicUrl);
         } catch (err) {
             console.error('Erro no upload de imagem:', err);
-            alert('Erro ao enviar imagem. Verifique se o bucket "media" está público e configurado devidamente.');
+            toast.error('Erro ao enviar imagem.');
         } finally {
             setIsUploading(false);
         }
@@ -139,7 +140,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (ingredientes.length === 0) {
-            alert("Adicione pelo menos um ingrediente.");
+            toast.error("Adicione pelo menos um ingrediente.");
             return;
         }
 
@@ -169,9 +170,10 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
             setTempo('');
             setImagemUrl('');
             setIngredientes([]);
+            toast.success('Receita criada com sucesso!');
         } catch (error) {
             console.error(error);
-            alert('Erro ao criar receita');
+            toast.error('Erro ao criar receita');
         } finally {
             setLoading(false);
         }
@@ -188,7 +190,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                             Nova Receita
                         </Dialog.Title>
                         <Dialog.Close asChild>
-                            <button className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
+                            <button aria-label="Fechar" className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
                                 <X size={20} />
                             </button>
                         </Dialog.Close>
@@ -211,6 +213,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                         <img src={imagemUrl} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
+                                            aria-label="Remover imagem"
                                             onClick={() => setImagemUrl('')}
                                             className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-100 transition-opacity"
                                         >
@@ -372,7 +375,7 @@ export default function CreateRecipeModal({ isOpen, onClose }: CreateRecipeModal
                                                     ? (ing.item.tipo_rendimento === 'peso_volume' ? (ing.item.rendimento_unidade || 'g') : 'porções')
                                                     : (ing.item.unidade_medida || 'g')}
                                             </span>
-                                            <button onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
+                                            <button aria-label="Remover ingrediente" onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
                                         </div>
                                     </div>
                                 ))}

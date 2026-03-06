@@ -27,6 +27,7 @@ export default function Ingredients() {
             <div className="flex justify-between items-center mb-6 mt-4">
                 <h1 className="text-2xl font-bold text-gray-900">Alimentos</h1>
                 <button
+                    aria-label="Cadastrar novo alimento"
                     onClick={() => setIsCreateModalOpen(true)}
                     className="bg-emerald-500 text-white p-2 rounded-xl shadow-md hover:bg-emerald-600 transition"
                 >
@@ -83,13 +84,17 @@ export default function Ingredients() {
                         </button>
                     ))}
                     {filteredAlimentos.length === 0 && (
-                        <div className="text-center py-10">
-                            <p className="text-gray-500 mb-4">Nenhum alimento encontrado.</p>
+                        <div className="bg-white rounded-[32px] p-8 text-center shadow-sm border border-gray-100 flex flex-col items-center mt-8">
+                            <div className="bg-emerald-50 p-4 rounded-full mb-4 text-emerald-500">
+                                <ImageIcon size={40} />
+                            </div>
+                            <h3 className="text-lg font-bold text-gray-800 mb-2">🍎 Nenhum alimento personalizado</h3>
+                            <p className="text-sm text-gray-500 mb-6">Crie um novo alimento para adicioná-lo à sua dieta e acompanhar seus macros com precisão.</p>
                             <button
                                 onClick={() => setIsCreateModalOpen(true)}
-                                className="text-emerald-500 font-bold hover:underline"
+                                className="text-emerald-500 font-bold bg-emerald-50 px-6 py-3 rounded-xl hover:bg-emerald-100 transition"
                             >
-                                + Cadastrar Novo
+                                + Crie um novo!
                             </button>
                         </div>
                     )}

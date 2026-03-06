@@ -4,6 +4,7 @@ import { X, Search } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import CreateFoodModal from './CreateFoodModal';
 import CreateRecipeModal from './CreateRecipeModal';
+import toast from 'react-hot-toast';
 
 interface AddFoodModalProps {
     isOpen: boolean;
@@ -45,9 +46,10 @@ export default function AddFoodModal({ isOpen, onClose, refeicaoId }: AddFoodMod
             setSelectedItem(null);
             setSearch('');
             setQuantidade('100');
+            toast.success('Adicionado com sucesso!');
         } catch (e) {
             console.error(e);
-            alert('Erro ao adicionar item');
+            toast.error('Erro ao adicionar item');
         } finally {
             setLoading(false);
         }

@@ -10,6 +10,7 @@ import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
 import PlanoPreviewModal from '../components/profile/PlanoPreviewModal';
 import { calculateNutritionTargets } from '../lib/nutritionCalculator';
+import toast from 'react-hot-toast';
 
 export default function Profile() {
     const { session, supabase } = useAuth();
@@ -60,12 +61,12 @@ export default function Profile() {
                 peso_atual: calcResults.peso,
                 objetivo: calcResults.objetivo
             });
-            alert('Metas atualizadas com sucesso!');
+            toast.success('Metas atualizadas com sucesso!');
             setCalcResults(null);
             setShowCalc(false);
         } catch (e) {
             console.error(e);
-            alert('Erro ao atualizar metas.');
+            toast.error('Erro ao atualizar metas.');
         }
     };
 
@@ -263,11 +264,11 @@ export default function Profile() {
                                         const start = new Date(ano, mes - 1, dia);
 
                                         await applyPlano({ plano: applyPlanoData, start_date: start });
-                                        alert('Dieta aplicada com Sucesso!');
+                                        toast.success('Dieta aplicada com Sucesso!');
                                         navigate('/dashboard');
                                     } catch (e) {
                                         console.error(e);
-                                        alert('Erro ao aplicar o plano.');
+                                        toast.error('Erro ao aplicar o plano.');
                                     } finally {
                                         setIsApplying(false);
                                         setApplyPlanoData(null);

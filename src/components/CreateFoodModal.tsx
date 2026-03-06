@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { X, Camera } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 interface CreateFoodModalProps {
     isOpen: boolean;
@@ -64,11 +65,11 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                 unidade_medida: data.unidade_medida || prev.unidade_medida
             }));
 
-            alert('Dados extraídos com sucesso!');
+            toast.success('Dados extraídos com sucesso!');
             setVitatUrl('');
         } catch (err: any) {
             console.error(err);
-            alert('Falha ao extrair: ' + err.message);
+            toast.error('Falha ao extrair: ' + err.message);
         } finally {
             setIsScraping(false);
         }
@@ -80,7 +81,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
 
         // Basic validation
         if (file.size > 5 * 1024 * 1024) {
-            alert('A imagem deve ter no máximo 5MB.');
+            toast.error('A imagem deve ter no máximo 5MB.');
             return;
         }
 
@@ -103,7 +104,7 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
             setFormData(prev => ({ ...prev, imagem_url: publicUrl }));
         } catch (err) {
             console.error('Erro no upload de imagem:', err);
-            alert('Erro ao enviar imagem. Verifique se o bucket "media" está público e configurado devidamente.');
+            toast.error('Erro ao enviar imagem.');
         } finally {
             setIsUploading(false);
         }
@@ -141,9 +142,10 @@ export default function CreateFoodModal({ isOpen, onClose, onSuccess, initialSea
                 unidade_medida: 'g'
             });
             setVitatUrl('');
+            toast.success('Alimento cadastrado com sucesso!');
         } catch (error) {
             console.error(error);
-            alert('Erro ao cadastrar alimento');
+            toast.error('Erro ao cadastrar alimento');
         } finally {
             setLoading(false);
         }

@@ -12,6 +12,7 @@ import NutriPatientDetails from './pages/NutriPatientDetails';
 import Auth from './pages/Auth';
 import { useAuth } from './hooks/useAuth';
 import { DateProvider } from './contexts/DateContext';
+import { Toaster } from 'react-hot-toast';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +56,20 @@ function App() {
             {/* Bottom Navigation */}
             <BottomNavigation />
           </div>
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: '#fff',
+                color: '#374151',
+                borderRadius: '16px',
+                boxShadow: '0 4px 14px -4px rgba(0, 0, 0, 0.1)',
+                fontWeight: 600,
+                fontSize: '14px',
+              },
+            }}
+          />
         </BrowserRouter>
       </DateProvider>
     </QueryClientProvider>

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Search, Plus, Trash2, Edit2, Clock, Image as ImageIcon } from 'lucide-react';
 import { useDietData } from '../hooks/useDietData';
+import toast from 'react-hot-toast';
 
 interface RecipeDetailsModalProps {
     isOpen: boolean;
@@ -79,7 +80,7 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (ingredientes.length === 0) {
-            alert("Adicione pelo menos um ingrediente.");
+            toast.error("Adicione pelo menos um ingrediente.");
             return;
         }
 
@@ -102,9 +103,10 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                 }))
             });
             setIsEditing(false);
+            toast.success('Receita atualizada com sucesso!');
         } catch (error) {
             console.error(error);
-            alert('Erro ao atualizar receita');
+            toast.error('Erro ao atualizar receita');
         } finally {
             setLoading(false);
         }
@@ -115,8 +117,9 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
             try {
                 await deleteReceita(receita.id);
                 handleClose();
+                toast.success('Receita deletada com sucesso!');
             } catch (e) {
-                alert("Erro ao deletar receita.");
+                toast.error("Erro ao deletar receita.");
             }
         }
     };
@@ -166,17 +169,17 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                         {/* Floating Actions */}
                         <div className="absolute top-4 right-4 flex gap-2">
                             {!isEditing && (
-                                <button onClick={() => setIsEditing(true)} className="p-2 rounded-full bg-white/90 backdrop-blur shadow-sm text-emerald-600 hover:bg-white transition">
+                                <button aria-label="Editar receita" onClick={() => setIsEditing(true)} className="p-2 rounded-full bg-white/90 backdrop-blur shadow-sm text-emerald-600 hover:bg-white transition">
                                     <Edit2 size={20} />
                                 </button>
                             )}
                             {isEditing && (
-                                <button onClick={handleDelete} className="p-2 rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 transition">
+                                <button aria-label="Deletar receita" onClick={handleDelete} className="p-2 rounded-full bg-red-500 text-white shadow-sm hover:bg-red-600 transition">
                                     <Trash2 size={20} />
                                 </button>
                             )}
                             <Dialog.Close asChild>
-                                <button className="p-2 rounded-full bg-white/90 backdrop-blur shadow-sm text-gray-600 hover:bg-white transition">
+                                <button aria-label="Fechar detalhes" className="p-2 rounded-full bg-white/90 backdrop-blur shadow-sm text-gray-600 hover:bg-white transition">
                                     <X size={20} />
                                 </button>
                             </Dialog.Close>
@@ -314,7 +317,7 @@ export default function RecipeDetailsModal({ isOpen, onClose, receita }: RecipeD
                                                         onChange={(e) => handleUpdateAmount(idx, e.target.value)}
                                                     />
                                                     <span className="text-xs text-gray-500">g</span>
-                                                    <button onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
+                                                    <button aria-label="Remover ingrediente" onClick={() => handleRemoveIngredient(idx)} className="text-red-400 p-1 hover:bg-red-50 rounded-md ml-1"><Trash2 size={16} /></button>
                                                 </div>
                                             </div>
                                         ))}

@@ -7,6 +7,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 const foodSchema = z.object({
     nome: z.string().min(1, 'Nome é obrigatório'),
@@ -76,7 +77,7 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
         if (!file) return;
 
         if (file.size > 5 * 1024 * 1024) {
-            alert('A imagem deve ter no máximo 5MB.');
+            toast.error('A imagem deve ter no máximo 5MB.');
             return;
         }
 
@@ -99,7 +100,7 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
             setValue('imagem_url', publicUrl, { shouldDirty: true });
         } catch (err) {
             console.error('Erro no upload de imagem:', err);
-            alert('Erro ao enviar imagem. Verifique sua conexão ou tente novamente.');
+            toast.error('Erro ao enviar imagem. Verifique sua conexão ou tente novamente.');
         } finally {
             setIsUploading(false);
         }
@@ -113,10 +114,10 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
                 ...data
             });
             setIsEditing(false);
-            // Optional: alert('Alimento atualizado sucesso');
+            toast.success('Alimento atualizado com sucesso!');
         } catch (e) {
             console.error(e);
-            alert('Erro ao atualizar alimento');
+            toast.error('Erro ao atualizar alimento');
         } finally {
             setLoading(false);
         }
@@ -127,8 +128,9 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
             try {
                 await deleteAlimento(alimento.id);
                 handleClose();
+                toast.success('Alimento deletado com sucesso!');
             } catch (e) {
-                alert("Erro ao deletar.");
+                toast.error("Erro ao deletar.");
             }
         }
     };
@@ -158,17 +160,17 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
                         </Dialog.Title>
                         <div className="flex items-center gap-2">
                             {isOwner && !isEditing && (
-                                <button onClick={() => setIsEditing(true)} className="p-2 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
+                                <button aria-label="Editar alimento" onClick={() => setIsEditing(true)} className="p-2 rounded-full bg-emerald-50 text-emerald-600 hover:bg-emerald-100">
                                     <Edit2 size={18} />
                                 </button>
                             )}
                             {isOwner && isEditing && (
-                                <button onClick={handleDelete} className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 mr-2">
+                                <button aria-label="Deletar alimento" onClick={handleDelete} className="p-2 rounded-full bg-red-50 text-red-600 hover:bg-red-100 mr-2">
                                     <Trash2 size={18} />
                                 </button>
                             )}
                             <Dialog.Close asChild>
-                                <button className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
+                                <button aria-label="Fechar detalhes" className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
                                     <X size={20} />
                                 </button>
                             </Dialog.Close>
@@ -247,6 +249,7 @@ export default function FoodDetailsModal({ isOpen, onClose, alimento }: FoodDeta
                                         <img src={currentImageUrl} alt="Preview" className="w-full h-full object-cover" />
                                         <button
                                             type="button"
+                                            aria-label="Remover imagem"
                                             onClick={() => setValue('imagem_url', '', { shouldDirty: true })}
                                             className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-100 transition-opacity"
                                         >

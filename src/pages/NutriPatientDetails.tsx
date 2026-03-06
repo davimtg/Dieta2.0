@@ -6,6 +6,7 @@ import { useNutriData } from '../hooks/useNutriData';
 import NutritionalCalculatorForm, { type CalculatorInputs } from '../components/profile/NutritionalCalculatorForm';
 import NutritionalCalculatorResults, { type CalculatorResultsProps } from '../components/profile/NutritionalCalculatorResults';
 import { calculateNutritionTargets } from '../lib/nutritionCalculator';
+import toast from 'react-hot-toast';
 
 export default function NutriPatientDetails() {
     const { id } = useParams<{ id: string }>();
@@ -49,7 +50,6 @@ export default function NutriPatientDetails() {
     const [sexo, setSexo] = useState<string>('');
     const [showCalc, setShowCalc] = useState(false);
     const [calcResults, setCalcResults] = useState<Omit<CalculatorResultsProps, 'onApply'> | null>(null);
-    const [toastMessage, setToastMessage] = useState<string>('');
 
     useEffect(() => {
         if (!vinculo) return;
@@ -93,10 +93,10 @@ export default function NutriPatientDetails() {
 
         try {
             await updateClientePerfil({ clienteId: vinculo.cliente_id, updates });
-            alert('Perfil do paciente atualizado com sucesso.');
+            toast.success('Perfil do paciente atualizado com sucesso.');
         } catch (error: any) {
             console.error(error);
-            alert(`Não foi possível atualizar o paciente: ${error?.message || 'erro desconhecido'}`);
+            toast.error(`Não foi possível atualizar o paciente: ${error?.message || 'erro desconhecido'}`);
         }
     };
 
@@ -115,11 +115,10 @@ export default function NutriPatientDetails() {
                 prot_g: calcResults.protein,
                 gord_g: calcResults.fat
             });
-            setToastMessage('Sugestão de metas enviada ao paciente com sucesso.');
-            setTimeout(() => setToastMessage(''), 3000);
+            toast.success('Sugestão de metas enviada ao paciente com sucesso.');
         } catch (error: any) {
             console.error(error);
-            alert(`Não foi possível enviar a sugestão: ${error?.message || 'erro desconhecido'}`);
+            toast.error(`Não foi possível enviar a sugestão: ${error?.message || 'erro desconhecido'}`);
         }
     };
 
@@ -164,12 +163,6 @@ export default function NutriPatientDetails() {
             </div>
 
             <div className="p-6 space-y-4">
-                {toastMessage && (
-                    <div className="bg-emerald-100 border border-emerald-200 text-emerald-700 text-sm font-semibold rounded-xl px-4 py-3">
-                        {toastMessage}
-                    </div>
-                )}
-
                 <div className="bg-white rounded-2xl border border-gray-100 p-4 flex items-center gap-3">
                     <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
                         <UserRound size={22} />
@@ -339,6 +332,6 @@ export default function NutriPatientDetails() {
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }

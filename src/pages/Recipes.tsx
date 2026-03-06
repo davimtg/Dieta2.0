@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useDietData } from '../hooks/useDietData';
 import CreateRecipeModal from '../components/CreateRecipeModal';
 import RecipeDetailsModal from '../components/RecipeDetailsModal';
-import { Plus, BookOpen, Clock, Image as ImageIcon, Search } from 'lucide-react';
+import { Plus, BookOpen, Clock, Image as ImageIcon, Search, Edit2 } from 'lucide-react';
 
 export default function Recipes() {
     const { receitas, isLoading } = useDietData();
@@ -85,10 +85,17 @@ export default function Recipes() {
                             <button
                                 key={receita.id}
                                 onClick={() => handleOpenDetails(receita)}
-                                className="w-full text-left bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:border-emerald-200 transition-colors group block"
+                                className="relative w-full text-left bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:border-emerald-200 transition-colors group block"
                             >
+                                {/* Quick Edit Hover Button */}
+                                <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                    <div className="bg-white/90 backdrop-blur p-2 rounded-full shadow-sm text-emerald-600 hover:bg-white transition-colors" aria-label="Acessar Detalhes para Editar">
+                                        <Edit2 size={18} />
+                                    </div>
+                                </div>
+
                                 {receita.imagem_url ? (
-                                    <div className="h-32 w-full bg-gray-200">
+                                    <div className="h-32 w-full bg-gray-200 relative">
                                         <img src={receita.imagem_url} alt={receita.nome} className="w-full h-full object-cover" />
                                     </div>
                                 ) : (
