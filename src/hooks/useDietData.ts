@@ -218,13 +218,18 @@ export function useDietData(date: Date = new Date()) {
                         if (!ref) {
                             const { data: newMeal, error: insertErr } = await supabase
                                 .from('refeicoes_diarias')
-                                .insert({ user_id: userId, data: dateStr, tipo_refeicao: tipo_refeicao, nome_refeicao: nome_refeicao || null })
+                                .insert({
+                                    user_id: userId,
+                                    data: dateStr,
+                                    tipo_refeicao: tipo_refeicao,
+                                    nome_refeicao: (nome_refeicao === tipo_refeicao) ? null : nome_refeicao
+                                })
                                 .select('id, tipo_refeicao, nome_refeicao')
                                 .single();
                             if (insertErr) throw insertErr;
                             refeicoesDia.push(newMeal);
-                        } else if (nome_refeicao && ref.nome_refeicao !== nome_refeicao) {
-                            // Update nome_refeicao se for diferente
+                        } else if (nome_refeicao && nome_refeicao !== tipo_refeicao && ref.nome_refeicao !== nome_refeicao) {
+                            // Update nome_refeicao se for diferente e não for apenas o slug
                             await supabase
                                 .from('refeicoes_diarias')
                                 .update({ nome_refeicao })

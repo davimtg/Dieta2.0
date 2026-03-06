@@ -77,6 +77,19 @@ function PrintableArea({ plano, nomeCliente }: { plano: any; nomeCliente?: strin
                     return { kcal: acc.kcal + m.kcal, carbo: acc.carbo + m.carbo, prot: acc.prot + m.prot, gord: acc.gord + m.gord };
                 }, { kcal: 0, carbo: 0, prot: 0, gord: 0 });
 
+                // Extrair tipos de refeição únicos presentes neste dia
+                const uniqueMealsThisDay = Array.from(new Set(itensDia.map((i: any) => i.tipo_refeicao)));
+                // Ordenar por ordem de aparição ou lógica prévia se quiser, por enquanto conforme o plano
+                const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
+                const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
+                    const idxA = defaultOrder.indexOf(a);
+                    const idxB = defaultOrder.indexOf(b);
+                    if (idxA === -1 && idxB === -1) return 0;
+                    if (idxA === -1) return 1;
+                    if (idxB === -1) return -1;
+                    return idxA - idxB;
+                });
+
                 return (
                     <div key={diaIdx} className="mb-8 break-inside-avoid">
                         <div className="flex items-center justify-between mb-3">
@@ -86,14 +99,20 @@ function PrintableArea({ plano, nomeCliente }: { plano: any; nomeCliente?: strin
                             </span>
                         </div>
 
-                        {mealTypes.map(meal => {
-                            const mealItems = itensDia.filter((i: any) => i.tipo_refeicao === meal.id);
+                        {sortedMeals.map(mealId => {
+                            const mealItems = itensDia.filter((i: any) => i.tipo_refeicao === mealId);
                             if (mealItems.length === 0) return null;
 
+                            // Tenta pegar o nome formatado do primeiro item
+                            const mealLabel = mealItems[0].nome_refeicao ||
+                                mealTypes.find(m => m.id === mealId)?.title ||
+                                mealId.charAt(0).toUpperCase() + mealId.slice(1).replace(/_/g, ' ');
+                            const mealIcon = mealTypes.find(m => m.id === mealId)?.icon || '🥣';
+
                             return (
-                                <div key={meal.id} className="mb-4 ml-2">
+                                <div key={mealId} className="mb-4 ml-2">
                                     <h3 className="text-sm font-bold text-gray-600 mb-2 flex items-center gap-2">
-                                        {meal.icon} {meal.title}
+                                        {mealIcon} {mealLabel}
                                     </h3>
                                     <div className="ml-4 space-y-2">
                                         {mealItems.map((item: any) => {
@@ -219,62 +238,79 @@ export default function PlanoPreviewModal({ isOpen, onClose, plano, nomeCliente 
 
                                         {/* Refeições do dia */}
                                         <div className="space-y-3">
-                                            {mealTypes.map(meal => {
-                                                const mealItems = itensDia.filter((i: any) => i.tipo_refeicao === meal.id);
-                                                if (mealItems.length === 0) return null;
+                                            {(() => {
+                                                const uniqueMealsThisDay = Array.from(new Set(itensDia.map((i: any) => i.tipo_refeicao)));
+                                                const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
+                                                const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
+                                                    const idxA = defaultOrder.indexOf(a);
+                                                    const idxB = defaultOrder.indexOf(b);
+                                                    if (idxA === -1 && idxB === -1) return 0;
+                                                    if (idxA === -1) return 1;
+                                                    if (idxB === -1) return -1;
+                                                    return idxA - idxB;
+                                                });
 
-                                                const mealKcal = mealItems.reduce((acc: number, item: any) => acc + getItemMacros(item).kcal, 0);
+                                                return sortedMeals.map(mealId => {
+                                                    const mealItems = itensDia.filter((i: any) => i.tipo_refeicao === mealId);
+                                                    if (mealItems.length === 0) return null;
 
-                                                return (
-                                                    <div key={meal.id} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                                                        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
-                                                            <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
-                                                                {meal.icon} {meal.title}
-                                                            </span>
-                                                            <span className="text-xs font-semibold text-emerald-500">{Math.round(mealKcal)} kcal</span>
-                                                        </div>
-                                                        <div className="divide-y divide-gray-50">
-                                                            {mealItems.map((item: any) => {
-                                                                const isRec = !!item.receita_id;
-                                                                const base = isRec ? item.receitas : item.alimentos;
-                                                                const m = getItemMacros(item);
-                                                                const subs: any[] = item.substituicoes ?? [];
+                                                    const mealLabel = mealItems[0].nome_refeicao ||
+                                                        mealTypes.find(m => m.id === mealId)?.title ||
+                                                        mealId.charAt(0).toUpperCase() + mealId.slice(1).replace(/_/g, ' ');
+                                                    const mealIcon = mealTypes.find(m => m.id === mealId)?.icon || '🥣';
+                                                    const mealKcal = mealItems.reduce((acc: number, item: any) => acc + getItemMacros(item).kcal, 0);
 
-                                                                return (
-                                                                    <div key={item.id} className="px-4 py-3">
-                                                                        {/* Item principal */}
-                                                                        <div className="flex items-start justify-between">
-                                                                            <div className="flex-1 min-w-0">
-                                                                                <p className="font-semibold text-gray-800 text-sm">{base?.nome}</p>
-                                                                                <p className="text-xs text-gray-400">
-                                                                                    {Math.round(item.quantidade_g)}{isRec ? ' porções' : 'g'} • {Math.round(m.kcal)} kcal
-                                                                                </p>
-                                                                                <div className="flex gap-2 mt-1">
-                                                                                    <span className="text-[10px] text-blue-500 font-bold">C:{Math.round(m.carbo)}g</span>
-                                                                                    <span className="text-[10px] text-emerald-500 font-bold">P:{Math.round(m.prot)}g</span>
-                                                                                    <span className="text-[10px] text-amber-500 font-bold">G:{Math.round(m.gord)}g</span>
+                                                    return (
+                                                        <div key={mealId} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                                                            <div className="flex items-center justify-between px-4 py-3 bg-gray-50 border-b border-gray-100">
+                                                                <span className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                                                                    {mealIcon} {mealLabel}
+                                                                </span>
+                                                                <span className="text-xs font-semibold text-emerald-500">{Math.round(mealKcal)} kcal</span>
+                                                            </div>
+                                                            <div className="divide-y divide-gray-50">
+                                                                {mealItems.map((item: any) => {
+                                                                    const isRec = !!item.receita_id;
+                                                                    const base = isRec ? item.receitas : item.alimentos;
+                                                                    const m = getItemMacros(item);
+                                                                    const subs: any[] = item.substituicoes ?? [];
+
+                                                                    return (
+                                                                        <div key={item.id} className="px-4 py-3">
+                                                                            {/* Item principal */}
+                                                                            <div className="flex items-start justify-between">
+                                                                                <div className="flex-1 min-w-0">
+                                                                                    <p className="font-semibold text-gray-800 text-sm">{base?.nome}</p>
+                                                                                    <p className="text-xs text-gray-400">
+                                                                                        {Math.round(item.quantidade_g)}{isRec ? ' porções' : 'g'} • {Math.round(m.kcal)} kcal
+                                                                                    </p>
+                                                                                    <div className="flex gap-2 mt-1">
+                                                                                        <span className="text-[10px] text-blue-500 font-bold">C:{Math.round(m.carbo)}g</span>
+                                                                                        <span className="text-[10px] text-emerald-500 font-bold">P:{Math.round(m.prot)}g</span>
+                                                                                        <span className="text-[10px] text-amber-500 font-bold">G:{Math.round(m.gord)}g</span>
+                                                                                    </div>
                                                                                 </div>
                                                                             </div>
-                                                                        </div>
 
-                                                                        {/* Substituições */}
-                                                                        {subs.length > 0 && (
-                                                                            <div className="mt-2 space-y-1">
-                                                                                {subs.map((sub: any, i: number) => (
-                                                                                    <div key={i} className="flex items-center gap-1.5 text-xs text-gray-400">
-                                                                                        <ArrowLeftRight size={10} className="shrink-0" />
-                                                                                        <span>Ou: <strong className="text-gray-500">{sub.nome}</strong> ({sub.quantidade_g}{sub.receita_id ? ' por.' : 'g'})</span>
-                                                                                    </div>
-                                                                                ))}
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                );
-                                                            })}
+                                                                            {/* Substituições */}
+                                                                            {subs.length > 0 && (
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    {subs.map((sub: any, i: number) => (
+                                                                                        <div key={i} className="flex items-center gap-1.5 text-xs text-gray-400">
+                                                                                            <ArrowLeftRight size={10} className="shrink-0" />
+                                                                                            <span>Ou: <strong className="text-gray-500">{sub.nome}</strong> ({sub.quantidade_g}{sub.receita_id ? ' por.' : 'g'})</span>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                );
-                                            })}
+                                                    );
+                                                });
+                                            })()}
                                         </div>
                                     </div>
                                 );
