@@ -3,9 +3,11 @@ import { useDietData } from '../hooks/useDietData';
 import { useGlobalDate } from '../contexts/DateContext';
 import AddFoodModal from '../components/AddFoodModal';
 import EditItemModal from '../components/EditItemModal';
-import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check, ArrowLeftRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import ClearDiaryModal from '../components/ClearDiaryModal';
+import toast from 'react-hot-toast';
 
 export default function Dashboard() {
     const { selectedDate, setSelectedDate } = useGlobalDate();
@@ -19,13 +21,18 @@ export default function Dashboard() {
         metasSugeridasPendentes,
         aceitarMetaSugerida,
         recusarMetaSugerida,
-        isRespondendoMetaSugerida
+        isRespondendoMetaSugerida,
+        clearDiary
     } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
 
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [selectedItemToEdit, setSelectedItemToEdit] = useState<any | null>(null);
+
+    // Clear diary state
+    const [isClearModalOpen, setIsClearModalOpen] = useState(false);
+    const [showClearMenu, setShowClearMenu] = useState(false);
 
     // Swap sugestão state
     const [swapTarget, setSwapTarget] = useState<any | null>(null);
@@ -175,6 +182,29 @@ export default function Dashboard() {
                         Voltar a Hoje
                     </button>
                 )}
+                {/* Botão de ações do diário */}
+                <div className="relative">
+                    <button
+                        onClick={() => setShowClearMenu(v => !v)}
+                        className="p-2 rounded-full hover:bg-emerald-600 transition text-white/80 hover:text-white"
+                        title="Ações do diário"
+                    >
+                        <MoreHorizontal size={20} />
+                    </button>
+                    {showClearMenu && (
+                        <>
+                            <div className="fixed inset-0 z-30" onClick={() => setShowClearMenu(false)} />
+                            <div className="absolute right-0 top-9 z-40 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[180px]">
+                                <button
+                                    onClick={() => { setShowClearMenu(false); setIsClearModalOpen(true); }}
+                                    className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 font-semibold hover:bg-red-50 transition"
+                                >
+                                    <Trash2 size={15} /> Limpar registros...
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
 
             {metasSugeridasPendentes && metasSugeridasPendentes.length > 0 && (
@@ -548,6 +578,21 @@ export default function Dashboard() {
                     </div>
                 </div>
             )}
+
+            {/* Modal de Limpeza do Diário */}
+            <ClearDiaryModal
+                isOpen={isClearModalOpen}
+                onClose={() => setIsClearModalOpen(false)}
+                selectedDate={selectedDate}
+                onConfirm={async (scope, dateA, dateB) => {
+                    try {
+                        await clearDiary({ scope, dateA, dateB });
+                        toast.success('Registros apagados com sucesso!');
+                    } catch (e: any) {
+                        toast.error(`Erro ao apagar: ${e.message}`);
+                    }
+                }}
+            />
         </div >
     );
 }

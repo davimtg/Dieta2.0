@@ -4,8 +4,8 @@ import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Flame, Trash2, X, Save, Sen
 import {
     DndContext,
     closestCenter,
-    KeyboardSensor,
     PointerSensor,
+    TouchSensor,
     useSensor,
     useSensors,
     type DragEndEvent,
@@ -15,7 +15,6 @@ import {
 import {
     arrayMove,
     SortableContext,
-    sortableKeyboardCoordinates,
     verticalListSortingStrategy,
     useSortable
 } from '@dnd-kit/sortable';
@@ -117,11 +116,14 @@ export default function NutriDietOrganizer() {
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 8, // Exige mover 8px antes de iniciar o arraste (permite cliques normais)
             },
         }),
-        useSensor(KeyboardSensor, {
-            coordinateGetter: sortableKeyboardCoordinates,
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250, // O usuário precisa segurar o dedo por 250ms para iniciar o arraste no celular
+                tolerance: 5,
+            },
         })
     );
 

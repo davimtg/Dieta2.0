@@ -518,6 +518,47 @@ export function useDietData(date: Date = new Date()) {
         }
     });
 
+    const clearDiaryMutation = useMutation({
+        mutationFn: async ({ scope, dateA, dateB }: { scope: 'selected' | 'specific' | 'range' | 'future' | 'all'; dateA?: string; dateB?: string }) => {
+            // 1. Buscar os IDs das refeições_diarias do usuário no escopo
+            let query = supabase
+                .from('refeicoes_diarias')
+                .select('id')
+                .eq('user_id', userId!);
+
+            if (scope === 'selected' || scope === 'specific') {
+                query = query.eq('data', dateA!);
+            } else if (scope === 'range') {
+                query = query.gte('data', dateA!).lte('data', dateB!);
+            } else if (scope === 'future') {
+                // Amanhã em diante
+                const tomorrow = new Date();
+                tomorrow.setDate(tomorrow.getDate() + 1);
+                query = query.gte('data', format(tomorrow, 'yyyy-MM-dd'));
+            }
+            // scope === 'all': sem filtro de data, apaga tudo do usuário
+
+            const { data: refeicaoRows, error: fetchError } = await query;
+            if (fetchError) throw fetchError;
+
+            if (!refeicaoRows || refeicaoRows.length === 0) return;
+
+            const refeicaoIds = refeicaoRows.map((r: any) => r.id);
+
+            // 2. Deletar itens_consumidos ligados a essas refeições
+            const { error: deleteError } = await supabase
+                .from('itens_consumidos')
+                .delete()
+                .in('refeicao_id', refeicaoIds);
+
+            if (deleteError) throw deleteError;
+        },
+        onSuccess: () => {
+            // Invalida todas as queries de refeições do usuário
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId] });
+        }
+    });
+
     return {
         alimentos,
         receitas,
@@ -538,6 +579,7 @@ export function useDietData(date: Date = new Date()) {
         updateReceita: updateReceitaMutation.mutateAsync,
         deleteReceita: deleteReceitaMutation.mutateAsync,
         updatePerfil: updatePerfilMutation.mutateAsync,
+        clearDiary: clearDiaryMutation.mutateAsync,
         metasSugeridasPendentes,
         aceitarMetaSugerida: aceitarMetaSugeridaMutation.mutateAsync,
         recusarMetaSugerida: recusarMetaSugeridaMutation.mutateAsync,
