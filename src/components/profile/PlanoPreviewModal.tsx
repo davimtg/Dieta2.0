@@ -78,7 +78,7 @@ function PrintableArea({ plano, nomeCliente }: { plano: any; nomeCliente?: strin
                 }, { kcal: 0, carbo: 0, prot: 0, gord: 0 });
 
                 // Extrair tipos de refeição únicos presentes neste dia
-                const uniqueMealsThisDay = Array.from(new Set(itensDia.map((i: any) => i.tipo_refeicao)));
+                const uniqueMealsThisDay = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
                 // Ordenar por ordem de aparição ou lógica prévia se quiser, por enquanto conforme o plano
                 const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
                 const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
@@ -239,7 +239,7 @@ export default function PlanoPreviewModal({ isOpen, onClose, plano, nomeCliente 
                                         {/* Refeições do dia */}
                                         <div className="space-y-3">
                                             {(() => {
-                                                const uniqueMealsThisDay = Array.from(new Set(itensDia.map((i: any) => i.tipo_refeicao)));
+                                                const uniqueMealsThisDay = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
                                                 const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
                                                 const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
                                                     const idxA = defaultOrder.indexOf(a);
