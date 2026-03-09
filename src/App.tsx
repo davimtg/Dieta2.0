@@ -10,6 +10,7 @@ import NutriDashboard from './pages/NutriDashboard';
 import NutriDietOrganizer from './pages/NutriDietOrganizer';
 import NutriPatientDetails from './pages/NutriPatientDetails';
 import Auth from './pages/Auth';
+import WeightHistory from './pages/WeightHistory';
 import { useAuth } from './hooks/useAuth';
 import { DateProvider } from './contexts/DateContext';
 import { Toaster } from 'react-hot-toast';
@@ -47,6 +48,7 @@ function App() {
                 <Route path="/recipes" element={<Recipes />} />
                 <Route path="/shopping-list" element={<ShoppingList />} />
                 <Route path="/profile" element={<Profile />} />
+                <Route path="/meu-peso" element={<WeightHistory />} />
                 <Route path="/nutri" element={<NutriDashboard />} />
                 <Route path="/nutri/paciente/:id" element={<NutriPatientDetails />} />
                 <Route path="/nutri/plano/:id" element={<NutriDietOrganizer />} />

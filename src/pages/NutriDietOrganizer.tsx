@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Flame, Trash2, X, Save, Send, Check, Sparkles, Loader2, GripVertical, Edit2 } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, Plus, Flame, Trash2, X, Save, Send, Check, Sparkles, Loader2, GripVertical, Edit2, Copy, ClipboardPaste } from 'lucide-react';
 import {
     DndContext,
     closestCenter,
@@ -112,6 +112,7 @@ export default function NutriDietOrganizer() {
     const [editMealName, setEditMealName] = useState('');
 
     const [activeId, setActiveId] = useState<string | null>(null);
+    const [copiedDayItems, setCopiedDayItems] = useState<LocalItem[] | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -225,6 +226,30 @@ export default function NutriDietOrganizer() {
         if (!newName.trim()) return;
         setLocalMeals(prev => prev.map(m => m.id === mealId ? { ...m, title: newName.trim() } : m));
         setLocalItems(prev => prev.map(item => item.tipo_refeicao === mealId ? { ...item, nome_refeicao: newName.trim() } : item));
+        setIsDirty(true);
+    };
+
+    const handleCopyDay = () => {
+        const itensHoje = localItems.filter(item => item.dia_semana === selectedDay);
+        setCopiedDayItems(itensHoje);
+    };
+
+    const handlePasteDay = () => {
+        if (!copiedDayItems || copiedDayItems.length === 0) return;
+
+        const ok = window.confirm(`Deseja substituir o cardápio de ${diasSemana[selectedDay]} pelo modelo copiado?`);
+        if (!ok) return;
+
+        const itensOutrosDias = localItems.filter(item => item.dia_semana !== selectedDay);
+
+        const novosItens = copiedDayItems.map(item => ({
+            ...item,
+            _localId: makeLocalId(),
+            dia_semana: selectedDay,
+            substituicoes: item.substituicoes.map(sub => ({ ...sub }))
+        }));
+
+        setLocalItems([...itensOutrosDias, ...novosItens]);
         setIsDirty(true);
     };
 
@@ -488,10 +513,27 @@ export default function NutriDietOrganizer() {
             {/* Macros do dia / Resumo Planejado vs Meta */}
             <div className="max-w-2xl mx-auto px-4 py-3">
                 <div className="bg-white rounded-3xl p-5 border border-gray-100 mb-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)]">
-                    <div className="flex justify-between items-center mb-5">
-                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                    <div className="flex justify-between items-center mb-5 flex-wrap gap-2">
+                        <h3 className="text-sm font-bold text-gray-800 flex items-center gap-2 shrink-0">
                             <Flame size={16} className="text-orange-400" /> Resumo de {diasSemana[selectedDay]}
                         </h3>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={handleCopyDay}
+                                className="flex-1 sm:flex-none items-center justify-center flex gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 transition border border-emerald-100/50"
+                            >
+                                <Copy size={13} /> <span className="sm:inline">Copiar Dia</span>
+                            </button>
+                            {copiedDayItems && (
+                                <button
+                                    onClick={handlePasteDay}
+                                    className="flex-1 sm:flex-none items-center justify-center flex gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 transition border border-blue-100/50"
+                                    title="Colar itens copiados neste dia"
+                                >
+                                    <ClipboardPaste size={13} /> <span className="sm:inline">Colar</span>
+                                </button>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex items-center gap-5 mb-5 pb-5 border-b border-gray-50">
@@ -826,8 +868,8 @@ function MealCardContent({
 
     return (
         <>
-            <div className="flex justify-between items-center px-4 py-3 border-b border-gray-50 flex-wrap gap-2">
-                <div className="flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between px-4 py-3 border-b border-gray-50 gap-3">
+                <div className="flex items-center gap-2 flex-wrap">
                     {/* Grip Handle */}
                     {!isOverlay && (
                         <button
@@ -835,6 +877,7 @@ function MealCardContent({
                             {...sortableProps?.listeners}
                             className="p-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing transition"
                             title="Arraste para reordenar"
+                            style={{ touchAction: 'none' }} // Necessário para Safari/iOS
                         >
                             <GripVertical size={18} />
                         </button>
@@ -865,32 +908,27 @@ function MealCardContent({
                             )}
                         </div>
                     )}
-                    <span className="text-xs text-gray-400 hidden sm:inline">({itensMeal.length} {itensMeal.length === 1 ? 'item' : 'itens'})</span>
-
-                    {mealMacros.kcal > 0 && (
-                        <div className="ml-2 text-[11px] text-gray-500 font-medium hidden md:flex items-center gap-1.5">
-                            <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/50">{Math.round(mealMacros.kcal)} kcal</span>
-                            <span>|</span>
-                            <span>C: {Math.round(mealMacros.carbo)}g • P: {Math.round(mealMacros.prot)}g • G: {Math.round(mealMacros.gord)}g</span>
-                        </div>
-                    )}
+                    <span className="text-xs text-gray-400">({itensMeal.length} {itensMeal.length === 1 ? 'item' : 'itens'})</span>
                 </div>
 
-                {!isOverlay && (
-                    <div className="flex items-center gap-2 w-full sm:w-auto overflow-hidden">
-                        {mealMacros.kcal > 0 && (
-                            <div className="text-[11px] text-gray-500 font-medium sm:hidden flex items-center gap-1.5 shrink-0">
-                                <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">{Math.round(mealMacros.kcal)} kcal</span>
-                            </div>
-                        )}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                    {mealMacros.kcal > 0 && (
+                        <div className="text-[11px] text-gray-500 font-medium flex items-center flex-wrap gap-1.5">
+                            <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/50">{Math.round(mealMacros.kcal)} kcal</span>
+                            <span className="hidden sm:inline text-gray-300">|</span>
+                            <span className="whitespace-nowrap bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">C: {Math.round(mealMacros.carbo)}g • P: {Math.round(mealMacros.prot)}g • G: {Math.round(mealMacros.gord)}g</span>
+                        </div>
+                    )}
+
+                    {!isOverlay && (
                         <button
                             onClick={() => { setSelectedMealType(meal.id); setIsAddModalOpen(true); }}
-                            className="flex items-center justify-center sm:justify-start gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-2 py-1.5 rounded-lg w-full sm:w-auto shrink-0 transition"
+                            className="flex items-center justify-center gap-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg shrink-0 transition"
                         >
                             <Plus size={13} /> Adicionar
                         </button>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
 
             <div className="p-3 space-y-2">
