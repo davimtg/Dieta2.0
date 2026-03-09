@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { useReactToPrint } from 'react-to-print';
+import { useRef, useState } from 'react';
+import html2pdf from 'html2pdf.js';
 import { X, Download, ArrowLeftRight } from 'lucide-react';
 import * as Dialog from '@radix-ui/react-dialog';
 
@@ -77,18 +77,8 @@ function PrintableArea({ plano, nomeCliente }: { plano: any; nomeCliente?: strin
                     return { kcal: acc.kcal + m.kcal, carbo: acc.carbo + m.carbo, prot: acc.prot + m.prot, gord: acc.gord + m.gord };
                 }, { kcal: 0, carbo: 0, prot: 0, gord: 0 });
 
-                // Extrair tipos de refeição únicos presentes neste dia
-                const uniqueMealsThisDay = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
-                // Ordenar por ordem de aparição ou lógica prévia se quiser, por enquanto conforme o plano
-                const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
-                const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
-                    const idxA = defaultOrder.indexOf(a);
-                    const idxB = defaultOrder.indexOf(b);
-                    if (idxA === -1 && idxB === -1) return 0;
-                    if (idxA === -1) return 1;
-                    if (idxB === -1) return -1;
-                    return idxA - idxB;
-                });
+                // Extrair tipos de refeição únicos presentes neste dia (já estarão na ordem do DB)
+                const sortedMeals = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
 
                 return (
                     <div key={diaIdx} className="mb-8 break-inside-avoid">
@@ -158,7 +148,27 @@ function PrintableArea({ plano, nomeCliente }: { plano: any; nomeCliente?: strin
 
 export default function PlanoPreviewModal({ isOpen, onClose, plano, nomeCliente }: PlanoPreviewModalProps) {
     const printRef = useRef<HTMLDivElement>(null);
-    const handlePrint = useReactToPrint({ contentRef: printRef });
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+    const handlePrint = async () => {
+        if (!printRef.current) return;
+        setIsGeneratingPDF(true);
+        const opt = {
+            margin: [10, 10, 10, 10] as [number, number, number, number],
+            filename: `Plano Alimentar - ${plano.nome}.pdf`,
+            image: { type: 'jpeg' as const, quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+        };
+
+        try {
+            await html2pdf().from(printRef.current).set(opt).save();
+        } catch (e) {
+            console.error('Erro ao gerar PDF', e);
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
 
     if (!plano) return null;
 
@@ -180,11 +190,12 @@ export default function PlanoPreviewModal({ isOpen, onClose, plano, nomeCliente 
                         </div>
                         <div className="flex items-center gap-2">
                             <button
-                                onClick={() => handlePrint()}
-                                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm py-2 px-3 rounded-xl transition"
+                                onClick={handlePrint}
+                                disabled={isGeneratingPDF}
+                                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold text-sm py-2 px-3 rounded-xl transition disabled:opacity-50"
                             >
                                 <Download size={15} />
-                                Exportar PDF
+                                {isGeneratingPDF ? 'Gerando...' : 'Exportar PDF'}
                             </button>
                             <Dialog.Close asChild>
                                 <button className="p-2 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200">
@@ -239,16 +250,7 @@ export default function PlanoPreviewModal({ isOpen, onClose, plano, nomeCliente 
                                         {/* Refeições do dia */}
                                         <div className="space-y-3">
                                             {(() => {
-                                                const uniqueMealsThisDay = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
-                                                const defaultOrder = ['cafe', 'almoco', 'lanche', 'jantar', 'lanche_da_tarde', 'ceia', 'pre_treino', 'pos_treino'];
-                                                const sortedMeals = uniqueMealsThisDay.sort((a: any, b: any) => {
-                                                    const idxA = defaultOrder.indexOf(a);
-                                                    const idxB = defaultOrder.indexOf(b);
-                                                    if (idxA === -1 && idxB === -1) return 0;
-                                                    if (idxA === -1) return 1;
-                                                    if (idxB === -1) return -1;
-                                                    return idxA - idxB;
-                                                });
+                                                const sortedMeals = Array.from(new Set<string>(itensDia.map((i: any) => i.tipo_refeicao as string)));
 
                                                 return sortedMeals.map(mealId => {
                                                     const mealItems = itensDia.filter((i: any) => i.tipo_refeicao === mealId);

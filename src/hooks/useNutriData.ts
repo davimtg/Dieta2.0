@@ -57,6 +57,7 @@ export function useNutriData() {
                     *,
                     plano_alimentar_itens (
                         id,
+                        created_at,
                         dia_semana,
                         tipo_refeicao,
                         nome_refeicao,
@@ -214,10 +215,12 @@ export function useNutriData() {
 
             // 2. Inserir os novos itens (se houver)
             if (itens.length > 0) {
-                const inserts = itens.map(item => ({
+                const now = Date.now();
+                const inserts = itens.map((item, index) => ({
                     plano_id: planoId,
                     dia_semana: item.dia_semana,
                     tipo_refeicao: item.tipo_refeicao,
+                    created_at: new Date(now + index * 1000).toISOString(), // Hack da Reordenação: 1 seg de dif por item no form
                     ...(item.nome_refeicao ? { nome_refeicao: item.nome_refeicao } : {}),
                     ...(item.alimento_id ? { alimento_id: item.alimento_id } : {}),
                     ...(item.receita_id ? { receita_id: item.receita_id } : {}),

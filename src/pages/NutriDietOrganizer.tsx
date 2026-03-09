@@ -257,7 +257,15 @@ export default function NutriDietOrganizer() {
     const handleSaveDraft = async () => {
         if (!id) return;
         try {
-            await saveDraft({ planoId: id, itens: localItems });
+            const mealOrderMap = new Map(localMeals.map((meal, index) => [meal.id, index]));
+            const orderedItems = [...localItems].sort((a, b) => {
+                if (a.dia_semana !== b.dia_semana) return a.dia_semana - b.dia_semana;
+                const orderA = mealOrderMap.get(a.tipo_refeicao) ?? 999;
+                const orderB = mealOrderMap.get(b.tipo_refeicao) ?? 999;
+                return orderA - orderB;
+            });
+
+            await saveDraft({ planoId: id, itens: orderedItems });
             setIsDirty(false);
             setSavedSuccess(true);
             setTimeout(() => setSavedSuccess(false), 3000);
@@ -273,7 +281,15 @@ export default function NutriDietOrganizer() {
         const ok = window.confirm('Enviar este plano ao paciente? Ele ficará visível no app do cliente imediatamente.');
         if (!ok) return;
         try {
-            await saveDraft({ planoId: id, itens: localItems });
+            const mealOrderMap = new Map(localMeals.map((meal, index) => [meal.id, index]));
+            const orderedItems = [...localItems].sort((a, b) => {
+                if (a.dia_semana !== b.dia_semana) return a.dia_semana - b.dia_semana;
+                const orderA = mealOrderMap.get(a.tipo_refeicao) ?? 999;
+                const orderB = mealOrderMap.get(b.tipo_refeicao) ?? 999;
+                return orderA - orderB;
+            });
+
+            await saveDraft({ planoId: id, itens: orderedItems });
             await updatePlanoStatus({ planoId: id, status: 'enviado' });
             setIsDirty(false);
             navigate('/nutri');
