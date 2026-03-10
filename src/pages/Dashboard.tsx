@@ -6,8 +6,63 @@ import EditItemModal from '../components/EditItemModal';
 import { Plus, ChevronLeft, ChevronRight, Calendar, Edit2, Trash2, Check, ArrowLeftRight, MoreHorizontal } from 'lucide-react';
 import { format, isToday, isTomorrow, isYesterday, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import type { DragEndEvent } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ClearDiaryModal from '../components/ClearDiaryModal';
 import toast from 'react-hot-toast';
+
+// Componente Wrapper para cada Refeição (Dnd-Kit)
+function SortableMealCard({ meal, children, onDelete }: { meal: any, children: React.ReactNode, onDelete: (id: string) => void }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: meal.id });
+    const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : 'auto', position: 'relative' as const };
+
+    // Nomes em PT-BR
+    const mealNames: Record<string, string> = { cafe: 'Café da Manhã', almoco: 'Almoço', lanche: 'Lanche', jantar: 'Jantar' };
+    const mealName = meal.nome_refeicao || mealNames[meal.tipo_refeicao] || meal.tipo_refeicao;
+    let mealKcal = 0;
+    meal.itens_consumidos?.forEach((item: any) => {
+        if (item.is_sugestao) return;
+        if (item.alimentos) mealKcal += item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g);
+        if (item.receitas) {
+            const rendimento = parseFloat(item.receitas.rendimento_quantidade) || item.receitas.rendimento_porcoes || 1;
+            let totalK = 0;
+            item.receitas.receita_ingredientes?.forEach((ri: any) => {
+                if (ri.alimentos) {
+                    const ratio = ri.quantidade_g / ri.alimentos.porcao_base_g;
+                    totalK += ri.alimentos.kcal * ratio;
+                } else if (ri.receitas) {
+                    // simplificado pro header
+                    totalK += 0;
+                }
+            });
+            mealKcal += (totalK / rendimento) * item.quantidade_g;
+        }
+    });
+
+    return (
+        <div ref={setNodeRef} style={style} className={`bg-white p-5 rounded-3xl shadow-sm border ${isDragging ? 'border-emerald-400 shadow-md opacity-90' : 'border-emerald-50/50'} flex flex-col gap-4`}>
+            {/* Header da Refeição com Drag Handle e Delete */}
+            <div className="flex justify-between items-center group/header">
+                <div className="flex items-center gap-2">
+                    <button {...attributes} {...listeners} className="text-gray-400 hover:text-emerald-500 cursor-grab active:cursor-grabbing p-1" title="Reordenar refeição">
+                        <MoreHorizontal size={20} className="rotate-90" />
+                    </button>
+                    <h3 className="font-bold text-gray-800">{mealName}</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{Math.round(mealKcal)} kcal</span>
+                    <button onClick={() => { if (confirm(`Deseja remover a refeição ${mealName}?`)) onDelete(meal.id) }} className="p-1.5 text-red-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors opacity-0 group-hover/header:opacity-100 focus:opacity-100" title="Apagar refeição">
+                        <Trash2 size={16} />
+                    </button>
+                </div>
+            </div>
+            {/* Corpo (Itens Consumidos) */}
+            {children}
+        </div>
+    );
+}
 
 export default function Dashboard() {
     const { selectedDate, setSelectedDate } = useGlobalDate();
@@ -22,7 +77,9 @@ export default function Dashboard() {
         aceitarMetaSugerida,
         recusarMetaSugerida,
         isRespondendoMetaSugerida,
-        clearDiary
+        clearDiary,
+        deleteRefeicaoDiaria,
+        reorderRefeicoesDiarias
     } = useDietData(selectedDate);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [selectedMealId, setSelectedMealId] = useState<string | null>(null);
@@ -122,25 +179,34 @@ export default function Dashboard() {
     const circleDasharray = 351.85; // 2 * pi * r (r=56)
     const circleDashoffset = circleDasharray - (circleDasharray * circlePercentage) / 100;
 
-    // Ordered meals for UI
-    const mealOrder = ['cafe', 'almoco', 'lanche', 'jantar'];
-    const mealNames: Record<string, string> = {
-        cafe: 'Café da Manhã',
-        almoco: 'Almoço',
-        lanche: 'Lanche',
-        jantar: 'Jantar'
-    };
-
     const sortedMeals = [...refeicoes].sort((a, b) => {
-        const indexA = mealOrder.indexOf(a.tipo_refeicao);
-        const indexB = mealOrder.indexOf(b.tipo_refeicao);
-
-        if (indexA === -1 && indexB === -1) return a.tipo_refeicao.localeCompare(b.tipo_refeicao);
-        if (indexA === -1) return 1;
-        if (indexB === -1) return -1;
-
-        return indexA - indexB;
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        return timeA - timeB;
     });
+
+    // Dnd Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event;
+        if (over && active.id !== over.id) {
+            const oldIndex = sortedMeals.findIndex(m => m.id === active.id);
+            const newIndex = sortedMeals.findIndex(m => m.id === over.id);
+            const newOrder = arrayMove(sortedMeals, oldIndex, newIndex);
+
+            // UI optimistic update - a Query do useDietData refará após a api voltar.
+            // Para isso chamamos a api silenciosamente
+            toast.promise(reorderRefeicoesDiarias(newOrder), {
+                loading: 'Salvando ordem...',
+                success: 'Ordem alterada',
+                error: 'Erro ao reordenar'
+            });
+        }
+    };
 
     return (
         <div className="bg-emerald-500 pt-8 pb-32 min-h-screen text-white rounded-b-[40px]">
@@ -301,154 +367,72 @@ export default function Dashboard() {
                     </div>
                 </div>
 
-                {/* Meals List */}
-                <div className="space-y-4">
-                    <div className="flex justify-between items-center mb-4 text-emerald-950 px-2 mt-8">
-                        <h2 className="text-lg font-bold">Hoje</h2>
-                    </div>
+                {/* Meals List - Drag and Drop Enabled */}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                    <div className="space-y-4">
+                        <div className="flex justify-between items-center mb-4 text-emerald-950 px-2 mt-8">
+                            <h2 className="text-lg font-bold">Hoje</h2>
+                        </div>
 
-                    {sortedMeals.map((meal: any) => {
-                        let mealKcal = 0;
-                        meal.itens_consumidos?.forEach((item: any) => {
-                            if (item.is_sugestao) return; // Ignora sugestões pro total da refeição
-                            if (item.alimentos) {
-                                mealKcal += item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g);
-                            }
-                            if (item.receitas) {
-                                mealKcal += getReceitaMacros(item.receitas).kcal * item.quantidade_g;
-                            }
-                        });
+                        <SortableContext items={sortedMeals.map((m: any) => m.id)} strategy={verticalListSortingStrategy}>
+                            {sortedMeals.map((meal: any) => {
+                                return (
+                                    <SortableMealCard key={meal.id} meal={meal} onDelete={deleteRefeicaoDiaria}>
+                                        <div className="space-y-2">
+                                            {(!meal.itens_consumidos || meal.itens_consumidos.length === 0) ? (
+                                                <p className="text-sm text-gray-400 italic">Nenhum item adicionado</p>
+                                            ) : (
+                                                meal.itens_consumidos.map((item: any) => {
+                                                    if (item.alimentos) {
+                                                        const itemKcal = Math.round(item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g));
+                                                        const itemRatio = item.quantidade_g / item.alimentos.porcao_base_g;
+                                                        const itemC = Math.round(item.alimentos.carbo * itemRatio);
+                                                        const itemP = Math.round(item.alimentos.prot * itemRatio);
+                                                        const itemG = Math.round(item.alimentos.gord * itemRatio);
 
-                        return (
-                            <div key={meal.id} className="bg-white p-5 rounded-3xl shadow-sm border border-emerald-50/50 flex flex-col gap-4">
-                                <div className="flex justify-between items-center">
-                                    <h3 className="font-bold text-gray-800">{meal.nome_refeicao || mealNames[meal.tipo_refeicao] || 'Refeição Extra'}</h3>
-                                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{Math.round(mealKcal)} kcal</span>
-                                </div>
+                                                        const containerClass = item.is_sugestao
+                                                            ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group"
+                                                            : "flex flex-col bg-gray-50 p-3 rounded-2xl relative group";
 
-                                <div className="space-y-2">
-                                    {(!meal.itens_consumidos || meal.itens_consumidos.length === 0) ? (
-                                        <p className="text-sm text-gray-400 italic">Nenhum item adicionado</p>
-                                    ) : (
-                                        meal.itens_consumidos.map((item: any) => {
-                                            if (item.alimentos) {
-                                                const itemKcal = Math.round(item.alimentos.kcal * (item.quantidade_g / item.alimentos.porcao_base_g));
-                                                const itemRatio = item.quantidade_g / item.alimentos.porcao_base_g;
-                                                const itemC = Math.round(item.alimentos.carbo * itemRatio);
-                                                const itemP = Math.round(item.alimentos.prot * itemRatio);
-                                                const itemG = Math.round(item.alimentos.gord * itemRatio);
-
-                                                const containerClass = item.is_sugestao
-                                                    ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group"
-                                                    : "flex flex-col bg-gray-50 p-3 rounded-2xl relative group";
-
-                                                return (
-                                                    <div key={item.id} className={containerClass}>
-                                                        <div className="flex items-start gap-3 w-full">
-                                                            {item.is_sugestao && (
-                                                                <button
-                                                                    onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
-                                                                    className="mt-0.5 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
-                                                                    title="Marcar como consumido"
-                                                                >
-                                                                    <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
-                                                                </button>
-                                                            )}
-                                                            <div className="flex-1 w-full relative min-w-0">
-                                                                <div className="flex justify-between items-start mb-1 pr-6 gap-2">
-                                                                    <span className="text-sm font-semibold text-gray-700 leading-tight break-words">{item.alimentos.nome}</span>
-                                                                    <span className="text-xs font-bold text-gray-900 shrink-0">{itemKcal} kcal</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center pr-6">
-                                                                    <div className="flex flex-col">
-                                                                        <span className="text-xs text-gray-700 font-medium">{item.quantidade_g}g</span>
-                                                                        <span className="text-[10.5px] text-gray-500 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                                                                            C: <span className="font-medium text-gray-600">{itemC}g</span> •
-                                                                            P: <span className="font-medium text-gray-600">{itemP}g</span> •
-                                                                            G: <span className="font-medium text-gray-600">{itemG}g</span>
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                                <div className="absolute inset-y-0 right-0 top-1 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                                    <button
-                                                                        onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
-                                                                        className="p-1 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
-                                                                        title="Editar quantidade"
-                                                                    >
-                                                                        <Edit2 size={16} />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => deleteItem(item.id)}
-                                                                        className="p-1 text-red-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
-                                                                        title="Remover item"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Troca de Sugestão (alimento) */}
-                                                        {item.is_sugestao && item.substituicoes?.length > 0 && (
-                                                            <button
-                                                                onClick={() => setSwapTarget(item)}
-                                                                className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-                                                            >
-                                                                <ArrowLeftRight size={11} /> Trocar item
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            } else if (item.receitas) {
-                                                const rMacros = getReceitaMacros(item.receitas);
-                                                const itemKcal = Math.round(rMacros.kcal * item.quantidade_g);
-                                                const recC = Math.round(rMacros.carbo * item.quantidade_g);
-                                                const recP = Math.round(rMacros.prot * item.quantidade_g);
-                                                const recG = Math.round(rMacros.gord * item.quantidade_g);
-
-                                                const containerClass = item.is_sugestao
-                                                    ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/50"
-                                                    : "flex flex-col bg-emerald-50/40 border border-emerald-100 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/60";
-
-                                                return (
-                                                    <div key={item.id} className={containerClass}>
-                                                        <div className="flex items-start gap-3 w-full">
-                                                            {item.is_sugestao && (
-                                                                <button
-                                                                    onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
-                                                                    className="mt-1 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
-                                                                    title="Marcar como consumido"
-                                                                >
-                                                                    <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
-                                                                </button>
-                                                            )}
-                                                            <div className="flex-1 w-full relative min-w-0">
-                                                                <div className="flex justify-between items-start mb-1 gap-2 pr-6">
-                                                                    <span className="text-sm font-bold text-gray-800 leading-tight pt-0.5 break-words">{item.receitas.nome}</span>
-                                                                    <span className="text-xs font-bold text-emerald-700 shrink-0 pt-0.5">{itemKcal} kcal</span>
-                                                                </div>
-                                                                <div className="flex justify-between items-center mb-2 pr-6">
-                                                                    <div className="flex flex-col items-start gap-1">
-                                                                        <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">
-                                                                            {item.quantidade_g} {(item.receitas.tipo_rendimento === 'peso_volume' ? item.receitas.rendimento_unidade || 'g' : (item.quantidade_g === 1 ? 'porção' : 'porções'))}
-                                                                        </span>
-                                                                        <span className="text-[10.5px] text-emerald-600/80 mt-0.5 whitespace-nowrap pl-0.5 overflow-hidden text-ellipsis">
-                                                                            C: <span className="font-medium text-emerald-700/80">{recC}g</span> •
-                                                                            P: <span className="font-medium text-emerald-700/80">{recP}g</span> •
-                                                                            G: <span className="font-medium text-emerald-700/80">{recG}g</span>
-                                                                        </span>
-                                                                        <div className="absolute inset-y-0 right-0 top-0 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        return (
+                                                            <div key={item.id} className={containerClass}>
+                                                                <div className="flex items-start gap-3 w-full">
+                                                                    {item.is_sugestao && (
+                                                                        <button
+                                                                            onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
+                                                                            className="mt-0.5 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
+                                                                            title="Marcar como consumido"
+                                                                        >
+                                                                            <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
+                                                                        </button>
+                                                                    )}
+                                                                    <div className="flex-1 w-full relative min-w-0">
+                                                                        <div className="flex justify-between items-start mb-1 pr-6 gap-2">
+                                                                            <span className="text-sm font-semibold text-gray-700 leading-tight break-words">{item.alimentos.nome}</span>
+                                                                            <span className="text-xs font-bold text-gray-900 shrink-0">{itemKcal} kcal</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center pr-6">
+                                                                            <div className="flex flex-col">
+                                                                                <span className="text-xs text-gray-700 font-medium">{item.quantidade_g}g</span>
+                                                                                <span className="text-[10.5px] text-gray-500 mt-0.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                                                                                    C: <span className="font-medium text-gray-600">{itemC}g</span> •
+                                                                                    P: <span className="font-medium text-gray-600">{itemP}g</span> •
+                                                                                    G: <span className="font-medium text-gray-600">{itemG}g</span>
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="absolute inset-y-0 right-0 top-1 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                                             <button
                                                                                 onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
-                                                                                className="p-1 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
-                                                                                title="Editar porções"
+                                                                                className="p-1 text-emerald-500 hover:bg-emerald-100 rounded-lg transition-colors"
+                                                                                title="Editar quantidade"
                                                                             >
                                                                                 <Edit2 size={16} />
                                                                             </button>
                                                                             <button
                                                                                 onClick={() => deleteItem(item.id)}
-                                                                                className="p-1 text-red-400 hover:bg-red-200/50 hover:text-red-600 rounded-lg transition-colors"
-                                                                                title="Remover receita"
+                                                                                className="p-1 text-red-400 hover:bg-red-100 hover:text-red-600 rounded-lg transition-colors"
+                                                                                title="Remover item"
                                                                             >
                                                                                 <Trash2 size={16} />
                                                                             </button>
@@ -456,68 +440,138 @@ export default function Dashboard() {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* Nested Ingredients */}
-                                                                {item.receitas.receita_ingredientes?.length > 0 && (
-                                                                    <div className="mt-1 pl-3 border-l-2 border-emerald-100 space-y-2 py-1 pr-6">
-                                                                        {item.receitas.receita_ingredientes.map((ri: any) => {
-                                                                            if (!ri.alimentos) return null;
-
-                                                                            const rendimento = parseFloat(item.receitas.rendimento_quantidade) || item.receitas.rendimento_porcoes || 1;
-                                                                            const proportionConsumed = item.quantidade_g / rendimento;
-
-                                                                            const scaledAmount = Math.round(ri.quantidade_g * proportionConsumed);
-                                                                            const ingrRatio = scaledAmount / ri.alimentos.porcao_base_g;
-
-                                                                            const ingrKcal = Math.round(ri.alimentos.kcal * ingrRatio);
-                                                                            const ingrC = Math.round(ri.alimentos.carbo * ingrRatio);
-                                                                            const ingrP = Math.round(ri.alimentos.prot * ingrRatio);
-                                                                            const ingrG = Math.round(ri.alimentos.gord * ingrRatio);
-
-                                                                            return (
-                                                                                <div key={ri.id} className="flex flex-col justify-center">
-                                                                                    <div className="flex justify-between items-center">
-                                                                                        <span className="text-[11px] text-gray-600 font-medium flex items-center gap-1.5 line-clamp-1"><span className="w-1 h-1 rounded-full bg-emerald-300 flex-shrink-0"></span> {ri.alimentos.nome}</span>
-                                                                                        <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap ml-2">{scaledAmount}g • {ingrKcal} kcal</span>
-                                                                                    </div>
-                                                                                    <span className="text-[9.5px] text-gray-400 mt-0.5 pl-2.5">C:{ingrC}g P:{ingrP}g G:{ingrG}g</span>
-                                                                                </div>
-                                                                            );
-                                                                        })}
-                                                                    </div>
+                                                                {/* Troca de Sugestão (alimento) */}
+                                                                {item.is_sugestao && item.substituicoes?.length > 0 && (
+                                                                    <button
+                                                                        onClick={() => setSwapTarget(item)}
+                                                                        className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                                                                    >
+                                                                        <ArrowLeftRight size={11} /> Trocar item
+                                                                    </button>
                                                                 )}
                                                             </div>
-                                                        </div>
+                                                        );
+                                                    } else if (item.receitas) {
+                                                        const rMacros = getReceitaMacros(item.receitas);
+                                                        const itemKcal = Math.round(rMacros.kcal * item.quantidade_g);
+                                                        const recC = Math.round(rMacros.carbo * item.quantidade_g);
+                                                        const recP = Math.round(rMacros.prot * item.quantidade_g);
+                                                        const recG = Math.round(rMacros.gord * item.quantidade_g);
 
-                                                        {/* Troca de Sugestão (receita) */}
-                                                        {item.is_sugestao && item.substituicoes?.length > 0 && (
-                                                            <button
-                                                                onClick={() => setSwapTarget(item)}
-                                                                className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
-                                                            >
-                                                                <ArrowLeftRight size={11} /> Trocar item
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                );
-                                            }
-                                            return null;
-                                        })
-                                    )}
-                                </div>
+                                                        const containerClass = item.is_sugestao
+                                                            ? "flex flex-col opacity-75 border-dashed border-2 border-emerald-200 bg-emerald-50/30 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/50"
+                                                            : "flex flex-col bg-emerald-50/40 border border-emerald-100 p-3 rounded-2xl relative group transition-colors hover:bg-emerald-50/60";
 
-                                <button
-                                    onClick={() => {
-                                        setSelectedMealId(meal.id);
-                                        setIsAddModalOpen(true);
-                                    }}
-                                    className="flex items-center justify-center gap-2 text-emerald-500 bg-emerald-50 hover:bg-emerald-100 text-sm font-semibold py-3 rounded-xl transition-colors"
-                                >
-                                    <Plus size={16} /> Adicionar Item
-                                </button>
-                            </div>
-                        );
-                    })}
-                </div>
+                                                        return (
+                                                            <div key={item.id} className={containerClass}>
+                                                                <div className="flex items-start gap-3 w-full">
+                                                                    {item.is_sugestao && (
+                                                                        <button
+                                                                            onClick={() => updateItemSugestao({ itemId: item.id, isSugestao: false })}
+                                                                            className="mt-1 shrink-0 w-5 h-5 rounded border-2 border-emerald-400 flex items-center justify-center hover:bg-emerald-500 hover:border-emerald-500 group/check transition-colors"
+                                                                            title="Marcar como consumido"
+                                                                        >
+                                                                            <Check size={12} strokeWidth={4} className="text-white opacity-0 group-hover/check:opacity-100 transition-opacity" />
+                                                                        </button>
+                                                                    )}
+                                                                    <div className="flex-1 w-full relative min-w-0">
+                                                                        <div className="flex justify-between items-start mb-1 gap-2 pr-6">
+                                                                            <span className="text-sm font-bold text-gray-800 leading-tight pt-0.5 break-words">{item.receitas.nome}</span>
+                                                                            <span className="text-xs font-bold text-emerald-700 shrink-0 pt-0.5">{itemKcal} kcal</span>
+                                                                        </div>
+                                                                        <div className="flex justify-between items-center mb-2 pr-6">
+                                                                            <div className="flex flex-col items-start gap-1">
+                                                                                <span className="text-xs font-medium text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded">
+                                                                                    {item.quantidade_g} {(item.receitas.tipo_rendimento === 'peso_volume' ? item.receitas.rendimento_unidade || 'g' : (item.quantidade_g === 1 ? 'porção' : 'porções'))}
+                                                                                </span>
+                                                                                <span className="text-[10.5px] text-emerald-600/80 mt-0.5 whitespace-nowrap pl-0.5 overflow-hidden text-ellipsis">
+                                                                                    C: <span className="font-medium text-emerald-700/80">{recC}g</span> •
+                                                                                    P: <span className="font-medium text-emerald-700/80">{recP}g</span> •
+                                                                                    G: <span className="font-medium text-emerald-700/80">{recG}g</span>
+                                                                                </span>
+                                                                                <div className="absolute inset-y-0 right-0 top-0 flex flex-col items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                                    <button
+                                                                                        onClick={() => { setSelectedItemToEdit(item); setIsEditModalOpen(true); }}
+                                                                                        className="p-1 text-emerald-600 hover:bg-emerald-200/50 rounded-lg transition-colors"
+                                                                                        title="Editar porções"
+                                                                                    >
+                                                                                        <Edit2 size={16} />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => deleteItem(item.id)}
+                                                                                        className="p-1 text-red-400 hover:bg-red-200/50 hover:text-red-600 rounded-lg transition-colors"
+                                                                                        title="Remover receita"
+                                                                                    >
+                                                                                        <Trash2 size={16} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+
+                                                                        {/* Nested Ingredients */}
+                                                                        {item.receitas.receita_ingredientes?.length > 0 && (
+                                                                            <div className="mt-1 pl-3 border-l-2 border-emerald-100 space-y-2 py-1 pr-6">
+                                                                                {item.receitas.receita_ingredientes.map((ri: any) => {
+                                                                                    if (!ri.alimentos) return null;
+
+                                                                                    const rendimento = parseFloat(item.receitas.rendimento_quantidade) || item.receitas.rendimento_porcoes || 1;
+                                                                                    const proportionConsumed = item.quantidade_g / rendimento;
+
+                                                                                    const scaledAmount = Math.round(ri.quantidade_g * proportionConsumed);
+                                                                                    const ingrRatio = scaledAmount / ri.alimentos.porcao_base_g;
+
+                                                                                    const ingrKcal = Math.round(ri.alimentos.kcal * ingrRatio);
+                                                                                    const ingrC = Math.round(ri.alimentos.carbo * ingrRatio);
+                                                                                    const ingrP = Math.round(ri.alimentos.prot * ingrRatio);
+                                                                                    const ingrG = Math.round(ri.alimentos.gord * ingrRatio);
+
+                                                                                    return (
+                                                                                        <div key={ri.id} className="flex flex-col justify-center">
+                                                                                            <div className="flex justify-between items-center">
+                                                                                                <span className="text-[11px] text-gray-600 font-medium flex items-center gap-1.5 line-clamp-1"><span className="w-1 h-1 rounded-full bg-emerald-300 flex-shrink-0"></span> {ri.alimentos.nome}</span>
+                                                                                                <span className="text-[10px] text-gray-500 font-semibold whitespace-nowrap ml-2">{scaledAmount}g • {ingrKcal} kcal</span>
+                                                                                            </div>
+                                                                                            <span className="text-[9.5px] text-gray-400 mt-0.5 pl-2.5">C:{ingrC}g P:{ingrP}g G:{ingrG}g</span>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Troca de Sugestão (receita) */}
+                                                                {item.is_sugestao && item.substituicoes?.length > 0 && (
+                                                                    <button
+                                                                        onClick={() => setSwapTarget(item)}
+                                                                        className="mt-2 flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 transition-colors"
+                                                                    >
+                                                                        <ArrowLeftRight size={11} /> Trocar item
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return null;
+                                                })
+                                            )}
+                                        </div>
+
+                                        <button
+                                            onClick={() => {
+                                                setSelectedMealId(meal.id);
+                                                setIsAddModalOpen(true);
+                                            }}
+                                            className="flex items-center justify-center gap-2 text-emerald-500 bg-emerald-50 hover:bg-emerald-100 text-sm font-semibold py-3 rounded-xl transition-colors"
+                                        >
+                                            <Plus size={16} /> Adicionar Item
+                                        </button>
+                                    </SortableMealCard>
+                                );
+                            })}
+                        </SortableContext>
+                    </div>
+                </DndContext>
             </div>
 
             <AddFoodModal

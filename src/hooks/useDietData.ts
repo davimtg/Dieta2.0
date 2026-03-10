@@ -117,6 +117,7 @@ export function useDietData(date: Date = new Date()) {
                     *,
                     plano_alimentar_itens (
                         id,
+                        created_at,
                         dia_semana,
                         tipo_refeicao,
                         nome_refeicao,
@@ -190,16 +191,17 @@ export function useDietData(date: Date = new Date()) {
                 if (itensDoDia.length > 0) {
                     let { data: refeicoesDia } = await supabase
                         .from('refeicoes_diarias')
-                        .select('id, tipo_refeicao, nome_refeicao')
+                        .select('id, tipo_refeicao, nome_refeicao, created_at')
                         .eq('user_id', userId)
                         .eq('data', dateStr);
 
                     if (!refeicoesDia || refeicoesDia.length === 0) {
                         const defaultMeals = ['cafe', 'almoco', 'lanche', 'jantar'];
+                        const now = Date.now();
                         const { data: newMeals, error: insertErr } = await supabase
                             .from('refeicoes_diarias')
-                            .insert(defaultMeals.map(tipo => ({ user_id: userId, data: dateStr, tipo_refeicao: tipo })))
-                            .select('id, tipo_refeicao, nome_refeicao');
+                            .insert(defaultMeals.map((tipo, idx) => ({ user_id: userId, data: dateStr, tipo_refeicao: tipo, created_at: new Date(now + idx * 1000).toISOString() })))
+                            .select('id, tipo_refeicao, nome_refeicao, created_at');
                         if (insertErr) throw insertErr;
                         refeicoesDia = newMeals || [];
                     }
@@ -212,9 +214,29 @@ export function useDietData(date: Date = new Date()) {
                         }
                     }
 
-                    // Garantir que todas as refeições do plano existam no banco para esse dia
+                    const safeRefeicoes = refeicoesDia || [];
+
+                    // Filtrar e Deletar as antigas Refeições Diárias não mais usadas
+                    const refeicoesParaManter = [];
+                    const refeicoesIdsParaExcluir = [];
+
+                    for (const rb of safeRefeicoes) {
+                        if (!refeicoesPlanoMap.has(rb.tipo_refeicao)) {
+                            refeicoesIdsParaExcluir.push(rb.id);
+                        } else {
+                            refeicoesParaManter.push(rb);
+                        }
+                    }
+
+                    if (refeicoesIdsParaExcluir.length > 0) {
+                        await supabase
+                            .from('refeicoes_diarias')
+                            .delete()
+                            .in('id', refeicoesIdsParaExcluir);
+                    }
+
                     for (const [tipo_refeicao, nome_refeicao] of refeicoesPlanoMap.entries()) {
-                        let ref = refeicoesDia.find((r: any) => r.tipo_refeicao === tipo_refeicao);
+                        let ref = refeicoesParaManter.find((r: any) => r.tipo_refeicao === tipo_refeicao);
                         if (!ref) {
                             const { data: newMeal, error: insertErr } = await supabase
                                 .from('refeicoes_diarias')
@@ -224,10 +246,10 @@ export function useDietData(date: Date = new Date()) {
                                     tipo_refeicao: tipo_refeicao,
                                     nome_refeicao: (nome_refeicao === tipo_refeicao) ? null : nome_refeicao
                                 })
-                                .select('id, tipo_refeicao, nome_refeicao')
+                                .select('id, tipo_refeicao, nome_refeicao, created_at')
                                 .single();
                             if (insertErr) throw insertErr;
-                            refeicoesDia.push(newMeal);
+                            refeicoesParaManter.push(newMeal);
                         } else if (nome_refeicao && nome_refeicao !== tipo_refeicao && ref.nome_refeicao !== nome_refeicao) {
                             // Update nome_refeicao se for diferente e não for apenas o slug
                             await supabase
@@ -238,18 +260,34 @@ export function useDietData(date: Date = new Date()) {
                         }
                     }
 
-                    // Preparar inserts para esse dia e essas refeiçoes
-                    for (const planoItem of itensDoDia) {
-                        const ref = refeicoesDia.find((r: any) => r.tipo_refeicao === planoItem.tipo_refeicao);
+                    // Limpar TODAS as sugestões do dia antes de popular (Para garantir limpeza total das que ficaram)
+                    const refeicaoIdsDoDia = refeicoesParaManter.map((r: any) => r.id);
+                    if (refeicaoIdsDoDia.length > 0) {
+                        await supabase
+                            .from('itens_consumidos')
+                            .delete()
+                            .in('refeicao_id', refeicaoIdsDoDia)
+                            .eq('is_sugestao', true);
+                    }
+
+                    // Preparar inserts para esse dia e essas refeiçoes mantendo a ordem com atraso em MS do created_at
+                    const now = Date.now();
+                    for (let itemIdx = 0; itemIdx < itensDoDia.length; itemIdx++) {
+                        const planoItem = itensDoDia[itemIdx];
+                        const ref = refeicoesParaManter.find((r: any) => r.tipo_refeicao === planoItem.tipo_refeicao);
                         if (ref) {
                             inserts.push({
                                 refeicao_id: ref.id,
+                                created_at: new Date(now + itemIdx * 1000).toISOString(),
                                 ...(planoItem.alimento_id ? { alimento_id: planoItem.alimento_id } : {}),
                                 ...(planoItem.receita_id ? { receita_id: planoItem.receita_id } : {}),
                                 quantidade_g: planoItem.quantidade_g,
                                 is_sugestao: true,
                                 substituicoes: planoItem.substituicoes ?? []
                             });
+
+                            // Forçar o horário do bloco-pai da refeição a atualizar também com o index da lista, garantindo a ordem no front
+                            await supabase.from('refeicoes_diarias').update({ created_at: new Date(now + itemIdx * 1000).toISOString() }).eq('id', ref.id);
                         }
                     }
                 }
@@ -552,10 +590,43 @@ export function useDietData(date: Date = new Date()) {
                 .in('refeicao_id', refeicaoIds);
 
             if (deleteError) throw deleteError;
+
+            // 3. (Extra) Também limpe a estrutura pai refeicoes_diarias vazia se for scope 'all' ou de limpeza profunda para permitir reimportação total limpa.
+            await supabase.from('refeicoes_diarias').delete().in('id', refeicaoIds);
         },
         onSuccess: () => {
             // Invalida todas as queries de refeições do usuário
             queryClient.invalidateQueries({ queryKey: ['refeicoes', userId] });
+        }
+    });
+
+    const deleteRefeicaoDiariaMutation = useMutation({
+        mutationFn: async (refeicaoId: string) => {
+            const { error } = await supabase
+                .from('refeicoes_diarias')
+                .delete()
+                .eq('id', refeicaoId);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId, formattedDate] });
+        }
+    });
+
+    const reorderRefeicoesDiariasMutation = useMutation({
+        mutationFn: async (orderedList: { id: string }[]) => {
+            const now = Date.now();
+            for (let i = 0; i < orderedList.length; i++) {
+                const artificialDateStr = new Date(now + i * 1000).toISOString();
+                const { error } = await supabase
+                    .from('refeicoes_diarias')
+                    .update({ created_at: artificialDateStr })
+                    .eq('id', orderedList[i].id);
+                if (error) throw error;
+            }
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['refeicoes', userId, formattedDate] });
         }
     });
 
@@ -584,5 +655,7 @@ export function useDietData(date: Date = new Date()) {
         aceitarMetaSugerida: aceitarMetaSugeridaMutation.mutateAsync,
         recusarMetaSugerida: recusarMetaSugeridaMutation.mutateAsync,
         isRespondendoMetaSugerida: aceitarMetaSugeridaMutation.isPending || recusarMetaSugeridaMutation.isPending,
+        deleteRefeicaoDiaria: deleteRefeicaoDiariaMutation.mutateAsync,
+        reorderRefeicoesDiarias: reorderRefeicoesDiariasMutation.mutateAsync,
     };
 }
