@@ -103,6 +103,12 @@ export default function Dashboard() {
         return format(selectedDate, "EEEE, dd 'de' MMMM", { locale: ptBR });
     };
 
+    // Dnd Sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
     if (isLoading) {
         return <div className="min-h-screen bg-emerald-500 flex flex-col items-center justify-center text-white">
             <Calendar size={48} className="mb-4 animate-bounce text-emerald-200" />
@@ -185,11 +191,6 @@ export default function Dashboard() {
         return timeA - timeB;
     });
 
-    // Dnd Sensors
-    const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-    );
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
