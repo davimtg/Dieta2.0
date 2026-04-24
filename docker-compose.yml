@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  dieta-frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dieta-frontend
+    ports:
+      # O formato é porta_hospedeiro:porta_container
+      # Sinta-se à vontade para alterar 8080 para qual porta quiser expor no seu servidor local
+      - "8080:80"
+    restart: unless-stopped
